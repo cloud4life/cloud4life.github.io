@@ -1,0 +1,391 @@
+
+
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script type="text/javascript" src="http://tajs.qq.com/stats?sId=44218032" charset="UTF-8"></script>
+  <script>
+	var _hmt = _hmt || [];
+	(function() {
+	  var hm = document.createElement("script");
+	  hm.src = "//hm.baidu.com/hm.js?7192fa361f5cabb11d8a22de41c1ba8f";
+	  var s = document.getElementsByTagName("script")[0]; 
+	  s.parentNode.insertBefore(hm, s);
+	})();
+	</script>
+  
+  <title>文件系统设计与实现【4】 - 文件与目录 | 会飞的猪的小站</title>
+  <meta name="author" content="LiuYun">
+  
+  <meta name="description" content="本书前文中我们已经了解到了操作系统两个关键的抽象概念：一个是进程，他是 CPU 的虚拟化；一个是地址空间，他是内存的虚拟化。这两者的结合，允许程序运行在一个独立的、私有的空间中，就好像他拥有自己独立的处理器和内存。这种虚拟化让系统编程变得更简单。现在不但桌面和服务器上普遍在使用这种虚拟化，同时也在各种可编程平台上快速发展，比如移动设备。　　在后续部分，我们介绍一个更为关键的虚拟化部分：持久性存储。一个进行持久存储的设备（传统磁盘或者 SSD），不同有内存，掉电后会失去数据，他能安全的、永久的保存数据（至少能够长时间保存数据）。因此，操作系统必须额外关注这种设备，因为他可以用来保存用户重要的数据信息。　　后续的章节中，我们将开始研究这种持久性数据的管理方式，关注能够提高系统性能和可靠性的方法。这一章介绍与 UNIX 文件系统进行交互的接口。">
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <meta property="og:title" content="文件系统设计与实现【4】 - 文件与目录"/>
+  <meta property="og:site_name" content="会飞的猪的小站"/>
+
+  
+    <meta property="og:image" content="undefined"/>
+  
+
+  <link href="/imgs/favicon.ico" rel="icon" type="image/x-ico">
+  <link rel="alternate" href="/atom.xml" title="会飞的猪的小站" type="application/atom+xml">
+  <link rel="stylesheet" href="/css/style.css" media="screen" type="text/css">
+  <!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+  <script src="//libs.baidu.com/jquery/1.8.0/jquery.min.js"></script>
+</head>
+
+
+<body>
+  <header><div>
+		
+			<div id="imglogo">
+				<a href="/"><img src="/imgs/logo.png" alt="会飞的猪的小站" title="会飞的猪的小站"/></a>
+			</div>
+			
+			<div id="textlogo">
+				<h1 class="site-name">会飞的猪的小站</h1>
+				<h2 class="blog-motto"></h2>
+			</div>
+			<nav class="animated">
+				<ul>
+					
+						<li><a href="/">首页</a></li>
+					
+						<li><a href="/archives">归档文件</a></li>
+					
+						<li><a href="/about">关于</a></li>
+					
+	<!--				<li> <a href="/atom.xml">RSS</a> </li> -->
+				</ul>
+			</nav>			
+</div>
+</header>
+  <div id="content" class="inner">
+    <div id="main-col" class="alignleft"><div id="wrapper"><article class="post">
+  
+    <div class="gallery">
+  <div class="photoset">
+    
+      <img src="">
+    
+  </div>
+  <div class="control">
+    <div class="prev"></div>
+    <div class="next"></div>
+  </div>
+</div>
+  
+  <div class="post-content">
+    <header class="article-info clearfix">
+  <h1 itemprop="name">
+	文件系统设计与实现【4】 - 文件与目录
+  </h1>
+  <p class="article-author">By
+    
+      <a href="http://xy0501.com" title="LiuYun">LiuYun</a>
+    </p>
+  <p class="article-time">
+    <time datetime="2015-11-16T01:11:36.000Z" itemprop="datePublished">2015-11-16</time>
+    更新日期:<time datetime="2015-12-01T07:39:15.000Z" itemprop="dateModified">2015-12-01</time>
+    
+  </p>
+</header>
+    <div class="entry">
+		
+			<div id="toc" class="toc-article">
+				<strong class="toc-title">文章目录</strong>
+				<ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#文件与目录"><span class="toc-number">1.</span> <span class="toc-text">文件与目录</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#文件系统接口"><span class="toc-number">2.</span> <span class="toc-text">文件系统接口</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#创建文件"><span class="toc-number">3.</span> <span class="toc-text">创建文件</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#读写文件"><span class="toc-number">4.</span> <span class="toc-text">读写文件</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#非顺序读写"><span class="toc-number">5.</span> <span class="toc-text">非顺序读写</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#通过-fsync-立即写入"><span class="toc-number">6.</span> <span class="toc-text">通过 fsync() 立即写入</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#重命名文件"><span class="toc-number">7.</span> <span class="toc-text">重命名文件</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#获取文件信息"><span class="toc-number">8.</span> <span class="toc-text">获取文件信息</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#删除文件"><span class="toc-number">9.</span> <span class="toc-text">删除文件</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#创建目录"><span class="toc-number">10.</span> <span class="toc-text">创建目录</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#读取目录"><span class="toc-number">11.</span> <span class="toc-text">读取目录</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#删除目录"><span class="toc-number">12.</span> <span class="toc-text">删除目录</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#硬链接"><span class="toc-number">13.</span> <span class="toc-text">硬链接</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#符号链接或软链接"><span class="toc-number">14.</span> <span class="toc-text">符号链接或软链接</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#创建和挂载文件系统"><span class="toc-number">15.</span> <span class="toc-text">创建和挂载文件系统</span></a></li></ol>
+			</div>
+		
+        <p>　　本书前文中我们已经了解到了操作系统两个关键的抽象概念：一个是进程，他是 CPU 的虚拟化；一个是地址空间，他是内存的虚拟化。这两者的结合，允许程序运行在一个独立的、私有的空间中，就好像他拥有自己独立的处理器和内存。这种虚拟化让系统编程变得更简单。现在不但桌面和服务器上普遍在使用这种虚拟化，同时也在各种可编程平台上快速发展，比如移动设备。<br>　　在后续部分，我们介绍一个更为关键的虚拟化部分：持久性存储。一个进行持久存储的设备（传统磁盘或者 SSD），不同有内存，掉电后会失去数据，他能安全的、永久的保存数据（至少能够长时间保存数据）。因此，操作系统必须额外关注这种设备，因为他可以用来保存用户重要的数据信息。<br>　　后续的章节中，我们将开始研究这种持久性数据的管理方式，关注能够提高系统性能和可靠性的方法。这一章介绍与 UNIX 文件系统进行交互的接口。<a id="more"></a></p>
+<h2 id="文件与目录"><a href="#文件与目录" class="headerlink" title="文件与目录"></a>文件与目录</h2><p>　　在存储虚拟化中有两个关键的抽象概念。第一个是文件，一个文件就是一个简单的线性字节序列，你可以对他进行读写操作。而每一个文件都有一个低级名称（low-level name），通常是一个数字，当然用户并不关心这个名称。由于历史的原因，文件系统低级名称通常被称为 inode 号。我们将在后面的章节介绍有关 inode 的知识，现在只需要知道有这么一个概念即可。<br>　　在大多数的系统中，虽然操作系统并不知道存储在磁盘中的文件到底是一个图片还是一个文档，但是文件系统会负责在磁盘上管理这些数据，保证当你再次请求这段数据时能够获取到你之前放在那里的数据。当然，这个过程并不像说起来这么简单，我们会在后面详细介绍。<br>　　第二个抽象概念是目录，目录就像一个文件一样，也有这么一个低级名称（inode 号），但是目录中的数据内容和文件就不一样：他包含的是一组入口键值对，一个是目录中包含的文件的文件名，另外就是目录包含的文件的 inode 号。例如有一个文件 foo，他的 inode 号为 10，那么 foo 所在的目录就会有一个入口键值 (“foo”, 10)，他将文件名和 inode 号进行了映射。目录中的每一个入口都对应了一个文件或者目录，通过在目录数据中继续存储目录，用户可以建立一个任意形状的目录树（目录分层结构），然后在目录树中保存文件与目录。<span id="img-4.1"></span><center><img src="http://7xo04o.com1.z0.glb.clouddn.com/file-info1.png" alt=""><br><small>图4.1 一个简单的目录树</small></center><br>　　目录树，或者叫做目录分层结构起始于一个根目录（在 UNIX 系列的操作系统中，根目录用“/”代替），并使用分隔符连接后续的子目录，指导指定的文件名或目录名。比如在根目录下创建一个目录 foo，然后在 foo 目录创建一个文件 bar.txt，这样我们就可以通过绝对路径 /foo/bar.txt 找到这个文件。图 <a href="#img-4.1">4.1</a> 展现的就是一个比较复杂的目录结构，其中有效的目录为 ‘/‘ ‘/foo’ ‘/bar’ ‘/bar/bar’ ‘/bar/foo’，有效的文件有 ‘/foo/bar.txt’ 和 ‘/bar/foo/bar.txt’，从这个目录树中你可以了解到，文件名可以和目录重名，不过必须在目录树的不同位置。<br>　　上面的文件由两部分组成，用 ‘.’ 分开，第一部分是文件的名字，第二部分是表示文件的格式。然而，这只是一种惯例，并不是在文件系统中强制要求的，并没人要求 main.c 就一定要是 C 语言的源码文件。<br>　　因此，在文件系统中，我们可以很方便命名我们想要命名的文件或目录。虽然命名起来很方便但不代表你可以随便命名，名称在系统中是很重要的，访问任何资源第一步就是需要能够获取他的名字，在 UNIX 系统中，文件系统提供了统一的方式来访问磁盘、USB、CD-ROM 以及其他的设备文件。</p>
+<blockquote>
+<p>命名在计算机系统中是很重要的，在 UINX 系统中，几乎你能想到的所有的东西都是通过文件系统命名的，不仅仅是文件、设备、管道，甚至进程都是可以在那些旧式文件系统中找到。命名的一致性简化了系统的概念模型，使得系统更简单、更模块化。因此，在创建一个系统或者接口时，你需要认真的想清楚你要使用的名字。</p>
+</blockquote>
+<h2 id="文件系统接口"><a href="#文件系统接口" class="headerlink" title="文件系统接口"></a>文件系统接口</h2><p>　　现在讨论一下文件系统的接口细节。我们将从最基本的文件的创建、访问和删除开始，也许你认为这些都很简单，其实不然，比如为什么删除文件不是用 remove 而是 unlink 函数呢？当你认真的学习完这一章，你就一定明白了。</p>
+<h2 id="创建文件"><a href="#创建文件" class="headerlink" title="创建文件"></a>创建文件</h2><p>　　创建文件这个操作在系统中是通过调用 open() 函数传递一个 O_CREAT 标记完成的。比如我们创建一个 foo 文件：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> fd = open(<span class="string">"foo"</span>, O_CREAT | O_WRONLY | O_TRUNC);</span><br></pre></td></tr></table></figure></p>
+<p>　　常规的 open 函数包含了许多不同的标记，在这个例子中我们使用的是创建文件标记 O_CREAT，只写标记 O_WRONLY，如果文件存在就清空的标记 O_TRUNC。<br>　　open() 函数另外一个重要的关键点是他的返回值：文件描述符。文件描述符也是一个整数，为每个进程私有，在 UNIX 系统中被同来访问文件。因此，一个文件被打开后，只要你有权限，那么你就可以通过这个文件描述符来读写这个文件。在这种方式中，文件描述符就只是为你提供一个可以正确操作的句柄。另外一种理解就是文件描述符可以被看做是一个文件类型对象的指针，一旦你拥有了这个对象，你就可以调用对象的方法来访问这个文件，像 read(),write() 函数等。我们可以在后文看到对于文件描述符的使用方法。</p>
+<h2 id="读写文件"><a href="#读写文件" class="headerlink" title="读写文件"></a>读写文件</h2><p>　　一旦我们创建文件完毕，就会想要对他们进行读写操作了。首先来观察读取一个文件，通过命令行执行 cat 程序在屏幕打印文件内容：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">prompt&gt; <span class="built_in">echo</span> hello &gt; foo</span><br><span class="line">prompt&gt; cat foo</span><br><span class="line">hello</span><br><span class="line">prompt&gt;</span><br></pre></td></tr></table></figure></p>
+<p>　　在这段代码中，我们将 echo 的输出重定向到文件 foo 中，这是文件 foo 中包含了字符 “hello”，然后使用 cat 命令来查看文件内容。但是 cat 程序是如何访问文件 foo 的呢？<br>　　为了找出答案，我们使用 strace 工具来跟踪程序发生的系统调用，strace 会将他追踪到的系统调用在屏幕中打印出来，下图是 strace 追踪 cat 程序产生的系统调用的结果（为了方便阅读，一些调用被删除了）：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">prompt&gt; strace cat foo</span><br><span class="line">...</span><br><span class="line">open(<span class="string">"foo"</span>, O_RDONLY | O_LARGEFILE)    = 3</span><br><span class="line"><span class="built_in">read</span>(3, <span class="string">"hello\n"</span>, 4096)               = 6</span><br><span class="line">write(1, <span class="string">"hello\n"</span>, 6)                 = 6</span><br><span class="line">hello</span><br><span class="line"><span class="built_in">read</span>(3, <span class="string">""</span>, 4096)                      = 0</span><br><span class="line">close(3)                               = 0</span><br><span class="line">...</span><br><span class="line">prompt&gt;</span><br></pre></td></tr></table></figure></p>
+<p>　　cat 首先使用只读打开文件。这里有几点需要说明：第一，文件是用只读模式打开的，使用的标记是 O_RDONLY；第二，使用了 64 位偏移（O_LARGEFILE)；第三，open() 函数成功地啊用并返回文件描述符 3。<br>　　为什么第一次调用 open() 函数返回的是 3 而不是 0，1，2 呢？事实证明，每个运行的进程会默认的打开三个文件：标准输入 0，标准输出 1，标准错误输出 2。因此，当你第一次打开文件时，返回的文件描述符是 3。<br>　　文件成功打开后，cat 使用 read() 系统调用从文件中反复读取一定数量的字节。read() 的第一个参数就是文件描述符，告诉文件系统从哪里去读取这个文件，因为一个进程可以打开多个文件，所以需要文件描述符高速文件系统从哪里读取文件。第二个参数指向一个缓存区的地址，在上面的例子上，strace 在这个地址上读取到的数据是 hello，第三个参数是缓存区的大小，这里是 4KB。read() 调用成功后返回读取的字节数。<br>　　除了读取数据，你也可以看到这里用到了一个 write() 系统调用将数据写入到标准输出 1 中，但是他是直接调用的 write() 吗？不一定，他有可能是调用的 printf() 函数，将数据按照一定的格式处理之后再输出。<br>　　cat 会不停的从文件中循环读取数据，直到文件中没有剩余字节，read() 返回 0，此时程序就知道整个文件已经被读取完毕。这是就会调用 close() 函数关闭文件句柄，这样文件就被关闭了。<br>　　写文件的完成步骤与此类似。首先以只写方式打开，然后调用 write() 函数，对于大文件就需要反复调用 write() 函数，最后调用 close() 关闭这个文件。</p>
+<h2 id="非顺序读写"><a href="#非顺序读写" class="headerlink" title="非顺序读写"></a>非顺序读写</h2><p>　　到目前为止，我们已经讨论了怎样读写一个文件，但是所有描述的访问过程都是顺序的，但是有的时候，需要从文件的某个偏移位置上进行读写操作。例如你要建立一个文本文档的索引，并用他查找一个特殊的字符，那么你可能在文档的某个随机偏移位置上结束读取操作。为了实现这个操作，我们需要用到 lseek() 系统调用，下面是这个函数的原型：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">off_t</span> lseek(<span class="keyword">int</span> fildes, <span class="keyword">off_t</span> offset, <span class="keyword">int</span> whence);</span><br></pre></td></tr></table></figure></p>
+<p>　　第一个参数很熟悉，他就是文件描述符，第二个参数就是偏移量，指的是在当前文件中的偏移量，第三个参数叫做 whence，同来确定怎样执行偏移操作。whence 的具体描述如下表：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">if whence is SEEK_SET, the offset is set to offset bytes.</span><br><span class="line">if whence is SEEK_CUR, the offset is set to its current location plus offset bytes.</span><br><span class="line">if whence is SEEK_END, the offset is set to the size of the file plus offset bytes.</span><br></pre></td></tr></table></figure></p>
+<p>　　正如上面描述的一样，在每个文件打开的过程中，操作系统都会追踪当前文件的偏移，用来确定下次读写操作的起始位置。因此，可以把一个打开的文件抽象成他当前偏移量，并可以通过两种方式进行更新。第一种就是当读写 N 个字节时，偏移会自增 N，第二种就是通过调用 lseek() 函数来改变。<br>　　这里要说明的是，lseek() 函数对磁盘是没用的，他只是改变了内核中偏移变量的值而已，磁盘的偏移需要通过磁头臂的移动，当 I/O 发生时，磁盘的偏移量取决于磁头的位置。</p>
+<blockquote>
+<p>lseek 这个系统调用的名字会让一些人迷惑，他们回去试图理解文件系统是怎样在磁盘上工作的。不要混淆了，lseek() 只是改变操作系统内核中跟踪文件读写的偏移量。而磁盘寻址是在 I/O 读写发生时，磁头才会移动，只不过你去调用 lseek 随意读取文件任意一个位置数据时，磁盘可能需要在下一次 I/O 时，多运转一些位置，但这并不一定。所以当你调用 lseek() 时并不产生 I/O，磁盘也并不会发生什么。</p>
+</blockquote>
+<h2 id="通过-fsync-立即写入"><a href="#通过-fsync-立即写入" class="headerlink" title="通过 fsync() 立即写入"></a>通过 fsync() 立即写入</h2><p>　　绝大多数的时候，当程序调用 write() 时，只是告诉文件系统：在以后的某个时间点将数据写入磁盘。文件系统基于性能等原因，会在内存中这个些操作缓存一段时间（一般是 5 秒到 30 秒），之后，这些写操作才会实实在在的发送到磁盘设备。对于应用程序而言，写操作完成的速度似乎很快，而且很少出现数据丢失。<br>　　然而，某些应用需要确保操作能被正确的完成，比如数据库管理系统，要能实现恢复协议就要求必须及时的将数据强制写入到磁盘之中。<br>　　为了支持这类应用，大多数的文件系统提供了一些附加的 API 进行控制。在 UNIX 系统中，提供给应用的接口是 fsync(int fd) 函数，当进程调用 fsync() 时，文件系统会将他传入的文件描述符对应的文件的所有未刷入磁盘的脏数据写入磁盘。一旦所有的写操作完成之后 fsync() 才会返回。<br>　　下面是一个 fsync() 函数的例子，代码描述了程序打开了一个 foo 文件，通过 write() 写入部分数据之后调用 fsync() 函数将数据立即刷入磁盘。<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> fd = open(<span class="string">"foo"</span>, O_CREAT | O_WRONLY | O_TRUNC);</span><br><span class="line">asset(fd &gt; <span class="number">-1</span>);</span><br><span class="line"><span class="keyword">int</span> rc = write(fd, buffer, size);</span><br><span class="line">assert(rc == size);</span><br><span class="line">rc = fsync(fd);</span><br><span class="line">assert(rc == <span class="number">0</span>);</span><br></pre></td></tr></table></figure></p>
+<h2 id="重命名文件"><a href="#重命名文件" class="headerlink" title="重命名文件"></a>重命名文件</h2><p>　　对于一个文件，你可能需要给他重新命名，在 UNIX 系统你可以使用 mv 命令进行修改。例如，将文件 foo 修改为 bar：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">prompt&gt; mv foo bar</span><br></pre></td></tr></table></figure></p>
+<p>　　老规矩，使用 starce 工具查看系统调用过程，我们可以看到 mv 采用了系统调用 rename(char <em>old, char </em>new)，他的两个参数是：原始文件名（old)，新文件名（new）。<br>　　考虑到可能发生的系统故障，rename() 函数提供的是原子操作，如果在重命名过程中发生故障，那么文件不是在旧命名状态就是到了新命名状态了，不会出现中间状态。这一点对于某些应用来讲很重要。<br>　　假如你正在使用一个文件编辑器，你在文件中插入了一行数据，该文件名为 foo.txt。编辑器更新文件，保证新文件既有旧文件的内容也包含了新插入的内容：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> fd = open(<span class="string">"foo.txt.tmp"</span>, o_WRONLY | O_CREAT | O_TRUNC);</span><br><span class="line">write(fd, buffer, size); <span class="comment">// write out new version of file</span></span><br><span class="line">fsync(fd);</span><br><span class="line">close(fd);</span><br><span class="line">rename(<span class="string">"foo.txt.tmp"</span>, <span class="string">"foo.txt"</span>);</span><br></pre></td></tr></table></figure></p>
+<p>　　例子中编辑器的操作很简单，用临时文件（foo.txt.tmp）保存新版本的文件数据，通过 fsync() 强制写入磁盘之中，然后当应用确认数据和元数据已经被存入磁盘中，就将临时文件重命名为原始文件。这最后一步交换新旧文件，同时删除旧版本文件都是一个原子操作完成的。</p>
+<h2 id="获取文件信息"><a href="#获取文件信息" class="headerlink" title="获取文件信息"></a>获取文件信息</h2><p>　　除了文件访问，我们希望文件系统保存文件的一部分信息，我们通常称这些信息为文件的元数据信息。为了查看一个文件的元数据，我们使用 stat() 或 fstat() 函数进行访问，这些调用通过文件路径名或文件描述符找到文件并填充 stat 结构体，如下所示：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> stat &#123;</span><br><span class="line">    <span class="keyword">dev_t</span> st_dev;           <span class="comment">/* ID of device containing file */</span></span><br><span class="line">    <span class="keyword">ino_t</span> st_ino;           <span class="comment">/* inode number */</span></span><br><span class="line">    <span class="keyword">mode_t</span> st_mode;         <span class="comment">/* protection */</span></span><br><span class="line">    <span class="keyword">nlink_t</span> st_nlink;       <span class="comment">/* number of hard links */</span></span><br><span class="line">    <span class="keyword">uid_t</span> st_uid;           <span class="comment">/* user ID of owner */</span></span><br><span class="line">    <span class="keyword">gid_t</span> st_gid;           <span class="comment">/* group ID of owner */</span></span><br><span class="line">    <span class="keyword">dev_t</span> st_rdev;          <span class="comment">/* device ID (if special file) */</span></span><br><span class="line">    <span class="keyword">off_t</span> st_size;          <span class="comment">/* total size, in bytes */</span></span><br><span class="line">    <span class="keyword">blksize_t</span> st_blksize;   <span class="comment">/* blocksize for filesystem I/O */</span></span><br><span class="line">    <span class="keyword">blkcnt_t</span> st_blocks;     <span class="comment">/* number of blocks allocated */</span></span><br><span class="line">    <span class="keyword">time_t</span> st_atime;        <span class="comment">/* time of last access */</span></span><br><span class="line">    <span class="keyword">time_t</span> st_mtime;        <span class="comment">/* time of last modification */</span></span><br><span class="line">    <span class="keyword">time_t</span> st_ctime;        <span class="comment">/* time of last status change */</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure></p>
+<p>　　你可以看到这里包含了很多文件相关的信息，包含文件大小，低级名称（inode 号），一些权限信息，一些访问和修改的时间信息，以及一些其他类型的信息等。为了查到这些信息，你可以在命令行输入 stat 命令进行查看。<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">prompt&gt; <span class="built_in">echo</span> hello &gt; file</span><br><span class="line">prompt&gt; <span class="built_in">stat</span> file</span><br><span class="line">  File: ‘file’</span><br><span class="line">  Size: 6 Blocks: 8 	IO Block: 4096 regular file</span><br><span class="line">Device: 811h/2065d 	Inode: 67158084 	Links: 1</span><br><span class="line">Access: (0640/-rw-r-----) Uid: (30686/ remzi) Gid: (30686/ remzi)</span><br><span class="line">Access: 2011-05-03 15:50:20.157594748 -0500</span><br><span class="line">Modify: 2011-05-03 15:50:20.157594748 -0500</span><br><span class="line">Change: 2011-05-03 15:50:20.157594748 -0500</span><br></pre></td></tr></table></figure></p>
+<p>　　实验证明，文件系统通常是在一个叫 inode 的结构中保存这类信息，我们会在讨论文件系统的章节详细进行阐述，现在我们仍然只需要知道 inode 是文件系统用来保存信息的数据结构即可。</p>
+<h2 id="删除文件"><a href="#删除文件" class="headerlink" title="删除文件"></a>删除文件</h2><p>　　到这里，我们已经知道怎样创建一个文件，顺序或随机访问文件了。但是如何删除文件呢？如果你用过 UNIX 系统就知道通过 rm 命令即可删除一个文件，可是 rm 又是调用的什么系统接口呢？<br>　　还是通过 strace 来查看一下吧，这里我们删除文件 foo：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">prompt&gt; strace rm foo</span><br><span class="line">...</span><br><span class="line">unlink(<span class="string">"foo"</span>)</span><br><span class="line">...</span><br></pre></td></tr></table></figure></p>
+<p>　　我们已经删除了一堆无关的 strace 信息，只留下了一个 unlink 的系统调用，正如你所看到的，unlink 利用文件名删除文件并成功返回了 0，但是这就会给我带来困惑，为什么这个系统调用叫做 unlink 而不是 remove 或者 delete？为了寻找答案，我们需要了解更多的有关文件与目录的知识。</p>
+<h2 id="创建目录"><a href="#创建目录" class="headerlink" title="创建目录"></a>创建目录</h2><p>　　除了文件，还有一系列的目录相关的系统调用允许你进行创建、读取和删除目录，需要说明的是我们不能对目录直接进行写操作，因为目录格式被文件系统视为元数据，你只能在目录中通过创建文件，目录或者其他对象来更新他。<br>　　为了创建目录，可以使用 mkdir() 这个系统调用。同名的 mkdir 程序也被用来创建目录，让我们来观察 mkdir 创建目录 foo 时的调用栈：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">prompt&gt; strace mkdir foo</span><br><span class="line">...</span><br><span class="line">mkdir(<span class="string">"foo"</span>, 0777)            = 0</span><br><span class="line">...</span><br><span class="line">prompt&gt;</span><br></pre></td></tr></table></figure></p>
+<p>　　这个目录被创建时，他是一个空目录，这个目录中只会包含两个入口：一个入口代表他自己，另外一个代表他的父目录。你可以用 <code>ls -a</code>　来查看这些目录：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">prompt&gt; ls <span class="_">-a</span></span><br><span class="line">./ ../</span><br><span class="line">prompt&gt; ls -al</span><br><span class="line">total 8</span><br><span class="line">drwxr-x--- 2 remzi remzi 6 Apr 30 16:17 ./</span><br><span class="line">drwxr-x--- 26 remzi remzi 4096 Apr 30 16:17 ../</span><br></pre></td></tr></table></figure></p>
+<blockquote>
+<p>rm 给我们提供了一个很好的权限命令的例子，告诉我们有时候权限命令会造成多严重的后果。例如，一次删除大量的文件，你可以这样做：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">prompt&gt; rm *</span><br></pre></td></tr></table></figure></p>
+<p>*代表当前目录的所有文件，当然，你如果一同也想将目录删除，就需要告诉 rm 程序递归进入子目录进行删除：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">prompt&gt; rm -rf *</span><br></pre></td></tr></table></figure></p>
+<p>如果你意外的删除了根目录，那么就会删除根目录下的所有内容，那么你就悲剧了。</p>
+</blockquote>
+<h2 id="读取目录"><a href="#读取目录" class="headerlink" title="读取目录"></a>读取目录</h2><p>　　现在我们已经会创建目录了，那么如何读取他呢？事实上就是上面的 ls 程序正在做的事情，那我们就自己实现一个 ls 一样的小程序，观察他是如何实现的。<br>　　操作目录并不像操作文件那样，我们要使用一组新的系统调用，下面的例子是一段用来打印目录内容的程序。这个程序使用了三个系统调用 opendir(), readdir() 和 closedir() 来完成工作。你可以看到这些接口的调用很简单，我们只是在一个简单的循环中读取一个目录，打印目录中的每个文件的文件名和 inode 号。<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc, <span class="keyword">char</span> *argv[])</span> </span>&#123;</span><br><span class="line">    DIR *dp = opendir(<span class="string">"."</span>);</span><br><span class="line">    assert(dp != <span class="literal">NULL</span>);</span><br><span class="line">    <span class="keyword">struct</span> dirent *d;</span><br><span class="line">    <span class="keyword">while</span> ((d = readdir(dp)) != <span class="literal">NULL</span>) &#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">"%d %s\n"</span>, (<span class="keyword">int</span>) d-&gt;d_ino, d-&gt;d_name);</span><br><span class="line">    &#125;</span><br><span class="line">    closedir(dp);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>　　下面的显示了目录数据结构 dirent 的有效信息：<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> dirent &#123;</span><br><span class="line">    <span class="keyword">char</span> d_name[<span class="number">256</span>];           <span class="comment">/* filename */</span></span><br><span class="line">    <span class="keyword">ino_t</span> d_ino;                <span class="comment">/* inode number */</span></span><br><span class="line">    <span class="keyword">off_t</span> d_off;                <span class="comment">/* offset to the next dirent */</span> </span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">short</span> d_reclen;    <span class="comment">/* length of this record */</span></span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">char</span> d_type;       <span class="comment">/* type of file */</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure></p>
+<p>　　因为目录的信息很简单，基本只是文件名和 inode 号的映射关系，从这些信息你也可以看到，文件名最多也就能取 256 个字节长度。</p>
+<h2 id="删除目录"><a href="#删除目录" class="headerlink" title="删除目录"></a>删除目录</h2><p>　　最后我们通过调用 rmdir() 来删除目录，同名的 rmdir 命令也是实现同样的效果。不同于删除文件，删除目录是有风险的，因为你可能在暗中删除了大量的数据，所以，rmdir() 要求被删除的目录必须为空，否则会调用失败。</p>
+<h2 id="硬链接"><a href="#硬链接" class="headerlink" title="硬链接"></a>硬链接</h2><p>　　终于讲到了硬链接，现在我们可以来详细解释为什么删除文件使用 unlink 了。文件系统中提供了一个 link() 的系统调用，这个 link() 包含了两个参数，一个是旧的路径名，一个是新的路径名。当你将新的文件名链接到旧的文件名时，你实际上是创建了另外一个关联同一个文件的方式。命令行工具 ln 就是来实现这种操作的：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">prompt&gt; <span class="built_in">echo</span> hello &gt; file</span><br><span class="line">prompt&gt; cat file</span><br><span class="line">hello</span><br><span class="line">prompt&gt; ln file file2</span><br><span class="line">prompt&gt; cat file2</span><br><span class="line">hello</span><br></pre></td></tr></table></figure></p>
+<p>　　这里我们创建了一个 file 文件，他包含了字符串“hello”，然后我们使用 ln 程序创建了一个硬链接。之后，我们可以打开 file 或者 file2 进行检查。<br>　　link() 所做的工作就是在目录中给文件创建另外一个名字并将二者链接起来，他们关联同一个 Inode 号，这个文件并没有在磁盘中进行任何的数据拷贝，我们可以将这两个文件的 inode 号打印出来：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">prompt&gt; ls -i file file2</span><br><span class="line">67158084 file</span><br><span class="line">67158084 file2</span><br><span class="line">prompt&gt;</span><br></pre></td></tr></table></figure></p>
+<p>　　通过 <code>ls -i</code> 打印出来的结果可以看到，这两个文件的 inode 号是一样的。因此，硬链接所做的事情其实就只是创建了一个有想用 inode 号的新入口。<br>　　现在你明白为什么什么文件是用 unlink() 了吧，当你创建一个文件时，你实际上做了两件事：第一，你让一个数据结构体 inode 跟踪记录文件的所有有效信息，包括文件的大小和数据块存在的位置等等；第二，你这个文件链接一个用户可读的名字，同时将他放到目录中。<br>　　因此，当文件系统删除 file 文件时，我们仍然可以读取到 file2 文件的数据：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">prompt&gt; rm file</span><br><span class="line">removed <span class="string">'file'</span></span><br><span class="line">prompt&gt; cat file2</span><br><span class="line">hello</span><br></pre></td></tr></table></figure></p>
+<p>　　这是因此当文件系统删除（unlink）一个文件后，就会检查这个 inode 号中的关联计数，这个计数表示当前文件系统中有多少个硬链接正在关联这个文件，当调用 unlink() 函数删除一个文件后，关联计数就会减少 1，只有当关联计数值变为 0 时，文件系统才会释放 inode 和对应的数据块数据，这样就是实实在在的删除了这个文件。<br>　　你可以使用 stat() 查看文件的关联计数。看一下对一个文件创建和删除硬链接后他的值的变化。在下面的例子中，我们来演示一下：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">prompt&gt; <span class="built_in">echo</span> hello &gt; file</span><br><span class="line">prompt&gt; <span class="built_in">stat</span> file</span><br><span class="line">... Inode: 67158084 Links: 1 ...</span><br><span class="line">prompt&gt; ln file file2</span><br><span class="line">prompt&gt; <span class="built_in">stat</span> file</span><br><span class="line">... Inode: 67158084 Links: 2 ...</span><br><span class="line">prompt&gt; <span class="built_in">stat</span> file2</span><br><span class="line">... Inode: 67158084 Links: 2 ...</span><br><span class="line">prompt&gt; ln file2 file3</span><br><span class="line">prompt&gt; <span class="built_in">stat</span> file</span><br><span class="line">... Inode: 67158084 Links: 3 ...</span><br><span class="line">prompt&gt; rm file</span><br><span class="line">prompt&gt; <span class="built_in">stat</span> file2</span><br><span class="line">... Inode: 67158084 Links: 2 ...</span><br><span class="line">prompt&gt; rm file2</span><br><span class="line">prompt&gt; <span class="built_in">stat</span> file3</span><br><span class="line">... Inode: 67158084 Links: 1 ...</span><br><span class="line">prompt&gt; rm file3</span><br></pre></td></tr></table></figure></p>
+<h2 id="符号链接或软链接"><a href="#符号链接或软链接" class="headerlink" title="符号链接或软链接"></a>符号链接或软链接</h2><p>　　除了硬链接之外，文件系统还有另外一种很重要的链接类型，那就是符号链接，有时候也被称为软链接。事实证明，硬链接具有一定的限制：你不能创建一个目录，这样是为了方式目录树形成循环；你不能在别的磁盘分区建立硬链接，因为 inode 号在一个文件系统中必须是唯一的等等。因此，符号链接应运而生。<br>　　创建这种链接我们仍然是使用 ln 程序，不过需要在后面添加 “-s” 参数，下面给出了一个实例：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">prompt&gt; <span class="built_in">echo</span> hello &gt; file</span><br><span class="line">prompt&gt; ln <span class="_">-s</span> file file2</span><br><span class="line">prompt&gt; cat file2</span><br><span class="line">hello</span><br></pre></td></tr></table></figure></p>
+<p>　　正如你所见，创建一个符号链接看起来和硬链接奕扬，访问原始文件可以通过文件名 file，也可以通过链接名 file2。<br>　　然而，除了表面上的相似，符号链接和硬链接是完全不同的。首先的区别就是符号链接本身就是一个文件，只是他的文件类型不同而已。我们已经讨论过普通文件和目录两种类型，符号链接就是文件系统能够识别的第三种类型。用 stat 查看一个符号链接的结果如下：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">prompt&gt; <span class="built_in">stat</span> file</span><br><span class="line">  ... regular file ...</span><br><span class="line">prompt&gt; <span class="built_in">stat</span> file2</span><br><span class="line">  ... symbolic link ...</span><br></pre></td></tr></table></figure></p>
+<p>　　使用 ls 也可以清楚的看出来，如果你仔细看 ls 输出的长串字符中的第一个字符，你关注一下最左边的那个字符，普通文件是“-”，目录是“d”，软链接则是“l”，你还可以看到符号链接的大小（例子中是 4 个字节），这就是他所链接指向的文件的文件名长度。<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">prompt&gt; ls -al</span><br><span class="line">drwxr-x--- 2 remzi remzi 29 May 3 19:10 ./</span><br><span class="line">drwxr-x--- 27 remzi remzi 4096 May 3 15:14 ../</span><br><span class="line">-rw-r----- 1 remzi remzi 6 May 3 19:10 file</span><br><span class="line">lrwxrwxrwx 1 remzi remzi 4 May 3 19:10 file2 -&gt; file</span><br></pre></td></tr></table></figure></p>
+<p>　　file2　是一个 4 字节大小的原因是因为形成符号链接的数据就是被链接的文件的路径名，因为我们被链接的文件叫做 file，所以符号链接 file2 的大小就只有 4 个字节，如果我们链接一个稍长一点的路径，我们的链接文件就会变大：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">prompt&gt; <span class="built_in">echo</span> hello &gt; alongerfilename</span><br><span class="line">prompt&gt; ln <span class="_">-s</span> alongerfilename file3</span><br><span class="line">prompt&gt; ls -al alongerfilename file3</span><br><span class="line">-rw-r----- 1 remzi remzi 6 May 3 19:17 alongerfilename</span><br><span class="line">lrwxrwxrwx 1 remzi remzi 15 May 3 19:17 file3 -&gt; alongerfilename</span><br></pre></td></tr></table></figure></p>
+<p>　　最后，由于链接文件的存在，有可能会造成悬空引用的出现：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">prompt&gt; <span class="built_in">echo</span> hello &gt; file</span><br><span class="line">prompt&gt; ln <span class="_">-s</span> file file2</span><br><span class="line">prompt&gt; cat file2</span><br><span class="line">hello</span><br><span class="line">prompt&gt; rm file</span><br><span class="line">prompt&gt; cat file2</span><br><span class="line">cat: file2: No such file or directory</span><br></pre></td></tr></table></figure></p>
+<p>　　如你所见，与删除（unlink）硬链接不同，删除源文件之后，造成了链接文件指向的路径名不存在。</p>
+<h2 id="创建和挂载文件系统"><a href="#创建和挂载文件系统" class="headerlink" title="创建和挂载文件系统"></a>创建和挂载文件系统</h2><p>　　我们现在已经了解了访问文件与目录的基本接口，也了解了两种不同类型的链接，只剩下了最后一个问题：如何将多个文件系统集合到一个完整的目录树之中。当然，为了实现这个目标，首先得创建一个文件系统，然后挂载文件系统，使得他的内容可以被访问。<br>　　为了创建文件系统，操作系统都会提供很多的创建文件系统的工具，通常是 mkfs.xxx 命令，当使用这个命令对一个磁盘进行格式化之后，我们就拥有了一个文件系统。<br>　　一旦文件系统被创建，如果需要在统一的文件系统目录树中进行访问，首先就需要将其挂载，这是通过底层的 mount() 系统调用完成的，挂载所做的工作很简单，就是将一个已经存在的目录作为目标挂载点，在目录树上的这个点粘贴一个新的文件系统。<br>　　举个例子，假设我们有一个还没有挂载的 ext3　文件系统在设备分区 /dev/sda1 上，他包含以下内容：一个根目录，里面包含子目录 a 和 b，每个目录保存了一个 foo 文件，我们现在将这个文件系统挂载到挂载点 /home/users 上，在命令行输入：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">prompt&gt; mount -t ext3 /dev/sda1 /home/users</span><br></pre></td></tr></table></figure></p>
+<p>　　如果成功，这个挂载将使得这个新的文件系统有效，为了查看他的内容，我们可以通过调用 ls：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">prompt&gt; ls /home/users</span><br><span class="line">a b</span><br></pre></td></tr></table></figure></p>
+<p>　　正如上面所示，路径名 /home/users/　现在代表的是新挂载的文件系统的根目录，类似的，你访问目录 a 和 b 需要使用路径名 /home/users/a 和 /home/users/b。访问文件 foo 就要通过路径名 /home/users/a/foo 或者 /home/users/b/foo 了。这样做可以在一个目录树上挂载所有的文件系统，而不需要使用多个独立的文件系统，使用命名变得方便和统一。<br>　　为了查看你系统中挂载了什么，挂载点是什么，你可以运行 mount 程序，运行后你可以看到如下内容：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">/dev/sda1 on / <span class="built_in">type</span> ext3 (rw)</span><br><span class="line">proc on /proc <span class="built_in">type</span> proc (rw)</span><br><span class="line">sysfs on /sys <span class="built_in">type</span> sysfs (rw)</span><br><span class="line">/dev/sda5 on /tmp <span class="built_in">type</span> ext3 (rw)</span><br><span class="line">/dev/sda7 on /var/vice/cache <span class="built_in">type</span> ext3 (rw)</span><br><span class="line">tmpfs on /dev/shm <span class="built_in">type</span> tmpfs (rw)</span><br><span class="line">AFS on /afs <span class="built_in">type</span> afs (rw)</span><br></pre></td></tr></table></figure></p>
+<p>　　上面混合了多种不同类型的文件系统，包括 ext3（一种标准的磁盘文件系统），proc 文件系统（用来访问当前进程的文件系统），tmpfs（临时文件文件系统）和 AFS（一种分布式文件系统），所有的文件系统都被整合进了一台机器的文件系统目录树之上。</p>
+
+    </div>
+    <footer>
+        
+  
+  <div class="categories">
+    <a href="/categories/技术文档/">技术文档</a>
+  </div>
+
+        
+  
+  <div class="tags">
+    <a href="/tags/文件系统/">文件系统</a>
+  </div>
+
+		<div class="bdsharebuttonbox">
+	<a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+	<a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+	<a href="#" class="bds_tqq" data-cmd="tqq" title="分享到腾讯微博"></a>
+	<a href="#" class="bds_renren" data-cmd="renren" title="分享到人人网"></a>
+	<a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+	<a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+	<a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+	<a href="#" class="bds_more" data-cmd="more"></a>
+	<a href="#" class="bds_count" data-cmd="count"></a>
+</div>
+<script>
+window._bd_share_config=
+{
+	"common":{
+		"bdSnsKey":{},
+		"bdText":"",
+		"bdMini":"2",
+		"bdMiniList":false,
+		"bdPic":"",
+		"bdStyle":"0",
+		"bdSize":"24"
+	},
+	"share":{},
+	"image":{
+		"viewList":["qzone","tsina","tqq","renren","weixin","fbook","twi"],
+		"viewText":"分享到：",
+		"viewSize":"24"
+	}
+	/*,
+	"selectShare":{
+		"bdContainerClass":null,
+		"bdSelectMiniList":["qzone","tsina","tqq","renren","weixin","fbook","twi"]
+	}*/
+};
+with(document)0[
+	(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='http://bdimg.share.baidu.com/static/api/js/share.js?v=89860593.js?cdnversion='+~(-new Date()/36e5)
+];
+</script>
+    
+        <div class="clearfix"></div>
+    </footer>
+  </div>
+</article>
+
+ <nav id="pagination" >
+    
+    <a href="/2015/11/17/filesystem-5/" class="alignleft prev" title="文件系统设计与实现【5】 - 简单文件系统实现">文件系统设计与实现【5】 - 简单文件系统实现</a>
+    
+    
+    <a href="/2015/11/10/filesystem-3/" class="alignright next" title="文件系统设计与实现【3】 - RAID 磁盘阵列">文件系统设计与实现【3】 - RAID 磁盘阵列</a>
+    
+    <div class="clearfix"></div>
+</nav>
+
+
+
+	
+	<section id="comment">
+		<!-- 多说评论框 start -->
+		<div class="ds-thread" data-thread-key="2015/11/16/filesystem-4/" data-title="文件系统设计与实现【4】 - 文件与目录" data-url="http://xy0501.com/2015/11/16/filesystem-4/"></div>
+		<!-- 多说评论框 end -->
+		<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+		<script type="text/javascript">
+		var duoshuoQuery = {short_name:"liuyun2113"};
+		(function() {
+			var ds = document.createElement('script');
+			ds.type = 'text/javascript';ds.async = true;
+			ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+			ds.charset = 'UTF-8';
+			(document.getElementsByTagName('head')[0] 
+			 || document.getElementsByTagName('body')[0]).appendChild(ds);
+		})();
+		</script>
+		<!-- 多说公共JS代码 end -->
+	</section>
+	
+</div></div>
+    <aside id="sidebar" class="alignright">
+  <div class="search">
+ <!-- <form action="http://zhannei.baidu.com/cse/site" target="_blank" method="get" accept-charset="utf-8"> -->
+  <form>
+    <input type="search" name="q" results="0" placeholder="搜索" id="liuyun_search_input">
+    <input type="hidden" name="q" value="xy0501.com">
+   <!-- <input type="hidden" name="q" value="site:xy0501.com"> -->
+  </form>
+</div>
+
+
+  
+<div class="widget tag">
+  <h3 class="title">分类</h3>
+  <ul class="entry">
+  
+    <li><a href="/categories/技术文档/">技术文档</a><small>15</small></li>
+  
+  </ul>
+</div>
+
+
+  
+<div class="widget tagcloud">
+  <h3 class="title">标签云</h3>
+  <div class="entry">
+    <a href="/tags/Arm64/" style="font-size: 10px;">Arm64</a> <a href="/tags/QML/" style="font-size: 10px;">QML</a> <a href="/tags/Qt/" style="font-size: 10px;">Qt</a> <a href="/tags/Xor/" style="font-size: 10px;">Xor</a> <a href="/tags/megacli/" style="font-size: 10px;">megacli</a> <a href="/tags/文件系统/" style="font-size: 20px;">文件系统</a> <a href="/tags/硬件-RAID/" style="font-size: 10px;">硬件 RAID</a>
+  </div>
+</div>
+
+
+  <iframe width="100%" height="119" class="share_self widget"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=0&speed=0&skin=1&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=2479286210&verifier=f4d2c316&dpc=1"></iframe>
+
+
+  <iframe class="widget" frameborder="no" border="0" marginwidth="0" marginheight="0" width="100%" height=86 src="http://music.163.com/outchain/player?type=2&id=64106&auto=0&height=66"></iframe>
+
+
+  <div class="widget tag">
+<h3 class="title">友情链接</h3>
+<ul class="entry">
+<li><a href="http://opiece.me" title="Chillax's Blog" target="_blank">Chillax</a></li>
+</ul>
+</div>
+</aside>
+    <div class="clearfix"></div>
+  </div>
+  <footer id="footer"><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> 疾风知劲草，板荡识忠臣 <br/>
+			勇夫安识义，知者必怀仁</p>
+	</section>
+	 
+	<div class="social-font clearfix">
+		
+		<a href="http://weibo.com/2479286210" target="_blank" title="weibo"></a>
+		
+		
+		
+		<a href="https://github.com/cloud4life" target="_blank" title="github"></a>
+		
+		
+		
+		
+		<a href="mailto:liuyun01@kylinos.cn" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+		<p class="copyright">Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/huangjunhui/concise" target="_blank" title="Concise">Concise</a> © 2016 
+		
+		<a href="http://xy0501.com/about" target="_blank" title="LiuYun">LiuYun</a>
+		
+		<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1256755286'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s95.cnzz.com/z_stat.php%3Fid%3D1256755286%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+		</p>
+</div>
+</footer>
+  <script src="//libs.baidu.com/jquery/2.0.3/jquery.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/counter.js"></script>
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+  $('.fancybox').fancybox();
+})(jQuery);
+</script>
+
+<div id="totop" style="position:fixed;bottom:100px;right:10px;cursor: pointer;">
+<a title="返回顶部"><img src="/imgs/scrollup.png"/></a>
+</div>
+<script src="/js/totop.js"></script>
+
+<script type="text/javascript">
+  (function(w,d,t,u,n,s,e){w['SwiftypeObject']=n;w[n]=w[n]||function(){
+	    (w[n].q=w[n].q||[]).push(arguments);};s=d.createElement(t);
+		  e=d.getElementsByTagName(t)[0];s.async=1;s.src=u;e.parentNode.insertBefore(s,e);
+		    })(window,document,'script','//s.swiftypecdn.com/install/v2/st.js','_st');
+
+			  _st('install','BLd1yiQzwz7iK32F7_hB','2.0.0');
+			  </script>
+
+<!-- mathjax config similar to math.stackexchange -->
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+</body>
+</html>
+
+

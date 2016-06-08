@@ -1,0 +1,354 @@
+
+
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script type="text/javascript" src="http://tajs.qq.com/stats?sId=44218032" charset="UTF-8"></script>
+  <script>
+	var _hmt = _hmt || [];
+	(function() {
+	  var hm = document.createElement("script");
+	  hm.src = "//hm.baidu.com/hm.js?7192fa361f5cabb11d8a22de41c1ba8f";
+	  var s = document.getElementsByTagName("script")[0]; 
+	  s.parentNode.insertBefore(hm, s);
+	})();
+	</script>
+  
+  <title>文件系统设计与实现【6】 - 本地快速文件系统（FFS） | 会飞的猪的小站</title>
+  <meta name="author" content="LiuYun">
+  
+  <meta name="description" content="最早的文件系统是随着 Unix 操作系统发布第一个版本时发布，他是由 Unix 之父 Ken Thompson 研发，我们现在称他为“旧版 Unix 文件系统”，这个文件系统非常的简单，在硬盘上的数据结构如下图所示：
+　　超级块（S）包含了整个文件系统的信息：磁盘卷的大小，inode 的数量，指向空闲块列表头的指针等等。磁盘的 inode 区域包含了整个文件系统所有的 inode 节点，剩下的大部分磁盘区域都属于数据区。　　这个旧版 Unix 文件系统的优点就是非常的简单，并且已经支持了文件系统对数据的抽象化 - 文件和目录结构的分层。这个简单易用的文件系统相对于过去既笨拙又只提供一层目录结构的早期存储系统来说是一个真正的进步。">
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <meta property="og:title" content="文件系统设计与实现【6】 - 本地快速文件系统（FFS）"/>
+  <meta property="og:site_name" content="会飞的猪的小站"/>
+
+  
+    <meta property="og:image" content="undefined"/>
+  
+
+  <link href="/imgs/favicon.ico" rel="icon" type="image/x-ico">
+  <link rel="alternate" href="/atom.xml" title="会飞的猪的小站" type="application/atom+xml">
+  <link rel="stylesheet" href="/css/style.css" media="screen" type="text/css">
+  <!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+  <script src="//libs.baidu.com/jquery/1.8.0/jquery.min.js"></script>
+</head>
+
+
+<body>
+  <header><div>
+		
+			<div id="imglogo">
+				<a href="/"><img src="/imgs/logo.png" alt="会飞的猪的小站" title="会飞的猪的小站"/></a>
+			</div>
+			
+			<div id="textlogo">
+				<h1 class="site-name">会飞的猪的小站</h1>
+				<h2 class="blog-motto"></h2>
+			</div>
+			<nav class="animated">
+				<ul>
+					
+						<li><a href="/">首页</a></li>
+					
+						<li><a href="/archives">归档文件</a></li>
+					
+						<li><a href="/about">关于</a></li>
+					
+	<!--				<li> <a href="/atom.xml">RSS</a> </li> -->
+				</ul>
+			</nav>			
+</div>
+</header>
+  <div id="content" class="inner">
+    <div id="main-col" class="alignleft"><div id="wrapper"><article class="post">
+  
+    <div class="gallery">
+  <div class="photoset">
+    
+      <img src="">
+    
+  </div>
+  <div class="control">
+    <div class="prev"></div>
+    <div class="next"></div>
+  </div>
+</div>
+  
+  <div class="post-content">
+    <header class="article-info clearfix">
+  <h1 itemprop="name">
+	文件系统设计与实现【6】 - 本地快速文件系统（FFS）
+  </h1>
+  <p class="article-author">By
+    
+      <a href="http://xy0501.com" title="LiuYun">LiuYun</a>
+    </p>
+  <p class="article-time">
+    <time datetime="2015-12-15T06:18:27.000Z" itemprop="datePublished">2015-12-15</time>
+    更新日期:<time datetime="2015-12-17T06:10:07.000Z" itemprop="dateModified">2015-12-17</time>
+    
+  </p>
+</header>
+    <div class="entry">
+		
+			<div id="toc" class="toc-article">
+				<strong class="toc-title">文章目录</strong>
+				<ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#问题：性能差"><span class="toc-number">1.</span> <span class="toc-text">问题：性能差</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#FFS-磁盘数据可预见解决方案"><span class="toc-number">2.</span> <span class="toc-text">FFS: 磁盘数据可预见解决方案</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#组织结构：磁盘柱面组"><span class="toc-number">3.</span> <span class="toc-text">组织结构：磁盘柱面组</span></a></li></ol>
+			</div>
+		
+        <p>　　最早的文件系统是随着 Unix 操作系统发布第一个版本时发布，他是由 Unix 之父 Ken Thompson 研发，我们现在称他为“旧版 Unix 文件系统”，这个文件系统非常的简单，在硬盘上的数据结构如下图所示：</p>
+<p><div style="text-align: center"><img src="http://7xo04o.com1.z0.glb.clouddn.com/ffs1.png" alt=""></div><br>　　超级块（S）包含了整个文件系统的信息：磁盘卷的大小，inode 的数量，指向空闲块列表头的指针等等。磁盘的 inode 区域包含了整个文件系统所有的 inode 节点，剩下的大部分磁盘区域都属于数据区。<br>　　这个旧版 Unix 文件系统的优点就是非常的简单，并且已经支持了文件系统对数据的抽象化 - 文件和目录结构的分层。这个简单易用的文件系统相对于过去既笨拙又只提供一层目录结构的早期存储系统来说是一个真正的进步。<a id="more"></a></p>
+<h2 id="问题：性能差"><a href="#问题：性能差" class="headerlink" title="问题：性能差"></a>问题：性能差</h2><p>　　正如 Berkeley 的 Kirk McKusick 和他的同事所做的测试一样，这个文件系统的性能是会随着使用不断下降的，文件传送的速度只有磁盘带宽的 2% 左右。为什么呢？<br>　　理解起来也容易，主要问题是旧版的 Unix 文件系统把整个磁盘视作一个随机访问的内存，数据分散在各处，没有意识到文件系统的存储介质是磁盘，因此会造成严重的寻址损耗。例如，一个文件的数据块离他的 inode 信息块很远，那么势必会增加从存储 inode 信息块到存储数据块的位置的寻址时间（这是一个很常见的操作）。<br>　　更糟的是，这个文件系统到后面会由于没有对空闲空间进行有效的管理从而产生了许多的空间碎片，空闲列表最终会指向一堆散落在磁盘各个位置的块，文件申请磁盘空间时，空闲列表简单的从头开始分配，这就会导致一个文件的数据会散落开来。<br>　　例如，如下图在磁盘中保存了 4 个文件（A，B，C，D），每一个文件 2 个数据块大小。</p>
+<p><center><img src="http://7xo04o.com1.z0.glb.clouddn.com/ffs2.png" alt=""></center><br>　　假如 B 和 D 文件被删除，磁盘中的文件布局就会如下：</p>
+<p><center><img src="http://7xo04o.com1.z0.glb.clouddn.com/ffs3.png" alt=""></center><br>　　如你所见，空闲的空间会被分割为两段，而不是 4 个连续的块，如果现在新加入一个文件 E，他有 4 个数据块大小：</p>
+<p><center><img src="http://7xo04o.com1.z0.glb.clouddn.com/ffs4.png" alt=""></center><br>　　E 文件被分割存储在磁盘之中了，当你访问这个文件时，你就不能得到磁盘的最佳访问性能（顺序访问性能），而需要在首先读取完 E1 和 E2 的基础上，磁盘寻道找到 E3 和 E4 继续读写。<br>　　另外一个问题：原始块大小为 512 字节，这实在太小了。虽然他可以最小化内部碎片（块内消耗），但带来的坏处就是需要更多次寻址。</p>
+<h2 id="FFS-磁盘数据可预见解决方案"><a href="#FFS-磁盘数据可预见解决方案" class="headerlink" title="FFS: 磁盘数据可预见解决方案"></a>FFS: 磁盘数据可预见解决方案</h2><p>　　Berkeley 的研究人员决定研发一款更好的、更快的文件系统，他们称他为快速文件系统（FFS），这个文件系统的核心思想就是文件系统的结构和分配策略是具有预见性的，并以此来提高性能。FFS 的创立将文件系统引入了一个全新的时代 - 保持文件系统接口不变（用相同的 API，包括 open()，read()，write()，close() 以及其他文件系统调用接口），但是改变系统内部的执行方式。开发者们铺设的这条道路一直延续到今天，基本上所有的现代文件系统都会包含那些已知的接口，因此就会保持对应用的兼容性，但会适当的修改他内部的操作和实现方式。</p>
+<h2 id="组织结构：磁盘柱面组"><a href="#组织结构：磁盘柱面组" class="headerlink" title="组织结构：磁盘柱面组"></a>组织结构：磁盘柱面组</h2><p>　　优化的第一次就是改变磁盘的映射结构，FFS 将磁盘分割成一系列的组，这些组被称作为磁盘柱面组（一些现代的文件系统像 Linux 的 Ext2 和 Ext3 叫做块组）。如图所示是一个有 10 个磁道柱面的磁盘：</p>
+<p><center><img src="http://7xo04o.com1.z0.glb.clouddn.com/ffs5.png" alt=""></center><br>　　这些组是 FFS 提高性能的核心结构，通过放置两个文件到相同的磁盘组当中，FFS 可以确保访问一个文件后继续访问另外一个文件在磁盘中不需要进行长距离的偏移。<br>　　因此，FFS 需要有能力在每一个组中分配文件和目录空间，这样看上去如下图：</p>
+<p><center><img src="http://7xo04o.com1.z0.glb.clouddn.com/ffs6.png" alt=""></center><br>　　基于数据可靠性的要求，每个组内都有一份超级块的拷贝（如果一个柱面组发生了磁盘损坏或者数据损毁，你仍然可以通过其他的超级块数据来挂载和访问文件系统）。<br>　　在每一个组内，FFS 都需要标记组内的 inode 和数据块是否被分配，所以每个组的 inode bitmap 和 data bitmap 都充当了管理组内的 inode 和数据块的角色。bitmap 是在文件系统中管理空闲空间的一种优秀方式，因为他能很容易的就找到一大块空间并分配给文件，能一定程度上避免在老版文件系统中出现的空闲列表的碎片问题。<br>　　最后，inode 和数据结构就和我们之前讲述的 vsfs 文件系统一样。同样，磁道柱面组的绝大多数空间是由数据块组成。</p>
+<blockquote>
+<p><strong>我们假设在 FFS 中创建一个文件，观察那些数据结构需要更新？</strong><br>用户创建文件 /foo/bar.txt，文件是一个数据块大小 4KB，因为文件是新创建的，所以需要一个新的 inode，所以 inode bitmap 和新分配的 inode 将要写入磁盘；文件是有内容的，所以数据块肯定需要被分配，因此 data bitmap 和数据块也要被写入磁盘，这样来说，在当前磁道柱面组内，至少产生了四次写磁盘的操作（回忆一下，这些写操作可能会在内存中缓存一段时间后再执行），但是，这并不是全部的写操作，当创建一个文件时，父目录结构也需要更新，foo 需要添加入口 bar.txt，而这个更新操作可能是在已存在的数据块中完成的，也有可能需要新申请数据块；同时，foo 的 inode 也需要更新他的目录长度和时间。总之，创建一个文件需要做很多的工作。</p>
+</blockquote>
+
+    </div>
+    <footer>
+        
+  
+  <div class="categories">
+    <a href="/categories/技术文档/">技术文档</a>
+  </div>
+
+        
+  
+  <div class="tags">
+    <a href="/tags/文件系统/">文件系统</a>
+  </div>
+
+		<div class="bdsharebuttonbox">
+	<a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+	<a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+	<a href="#" class="bds_tqq" data-cmd="tqq" title="分享到腾讯微博"></a>
+	<a href="#" class="bds_renren" data-cmd="renren" title="分享到人人网"></a>
+	<a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+	<a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+	<a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+	<a href="#" class="bds_more" data-cmd="more"></a>
+	<a href="#" class="bds_count" data-cmd="count"></a>
+</div>
+<script>
+window._bd_share_config=
+{
+	"common":{
+		"bdSnsKey":{},
+		"bdText":"",
+		"bdMini":"2",
+		"bdMiniList":false,
+		"bdPic":"",
+		"bdStyle":"0",
+		"bdSize":"24"
+	},
+	"share":{},
+	"image":{
+		"viewList":["qzone","tsina","tqq","renren","weixin","fbook","twi"],
+		"viewText":"分享到：",
+		"viewSize":"24"
+	}
+	/*,
+	"selectShare":{
+		"bdContainerClass":null,
+		"bdSelectMiniList":["qzone","tsina","tqq","renren","weixin","fbook","twi"]
+	}*/
+};
+with(document)0[
+	(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='http://bdimg.share.baidu.com/static/api/js/share.js?v=89860593.js?cdnversion='+~(-new Date()/36e5)
+];
+</script>
+    
+        <div class="clearfix"></div>
+    </footer>
+  </div>
+</article>
+
+ <nav id="pagination" >
+    
+    <a href="/2015/12/15/filesystem-7/" class="alignleft prev" title="文件系统设计与实现【7】 - FSCK 与日志">文件系统设计与实现【7】 - FSCK 与日志</a>
+    
+    
+    <a href="/2015/11/17/filesystem-5/" class="alignright next" title="文件系统设计与实现【5】 - 简单文件系统实现">文件系统设计与实现【5】 - 简单文件系统实现</a>
+    
+    <div class="clearfix"></div>
+</nav>
+
+
+
+	
+	<section id="comment">
+		<!-- 多说评论框 start -->
+		<div class="ds-thread" data-thread-key="2015/12/15/filesystem-6/" data-title="文件系统设计与实现【6】 - 本地快速文件系统（FFS）" data-url="http://xy0501.com/2015/12/15/filesystem-6/"></div>
+		<!-- 多说评论框 end -->
+		<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+		<script type="text/javascript">
+		var duoshuoQuery = {short_name:"liuyun2113"};
+		(function() {
+			var ds = document.createElement('script');
+			ds.type = 'text/javascript';ds.async = true;
+			ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+			ds.charset = 'UTF-8';
+			(document.getElementsByTagName('head')[0] 
+			 || document.getElementsByTagName('body')[0]).appendChild(ds);
+		})();
+		</script>
+		<!-- 多说公共JS代码 end -->
+	</section>
+	
+</div></div>
+    <aside id="sidebar" class="alignright">
+  <div class="search">
+ <!-- <form action="http://zhannei.baidu.com/cse/site" target="_blank" method="get" accept-charset="utf-8"> -->
+  <form>
+    <input type="search" name="q" results="0" placeholder="搜索" id="liuyun_search_input">
+    <input type="hidden" name="q" value="xy0501.com">
+   <!-- <input type="hidden" name="q" value="site:xy0501.com"> -->
+  </form>
+</div>
+
+
+  
+<div class="widget tag">
+  <h3 class="title">分类</h3>
+  <ul class="entry">
+  
+    <li><a href="/categories/技术文档/">技术文档</a><small>15</small></li>
+  
+  </ul>
+</div>
+
+
+  
+<div class="widget tagcloud">
+  <h3 class="title">标签云</h3>
+  <div class="entry">
+    <a href="/tags/Arm64/" style="font-size: 10px;">Arm64</a> <a href="/tags/QML/" style="font-size: 10px;">QML</a> <a href="/tags/Qt/" style="font-size: 10px;">Qt</a> <a href="/tags/Xor/" style="font-size: 10px;">Xor</a> <a href="/tags/megacli/" style="font-size: 10px;">megacli</a> <a href="/tags/文件系统/" style="font-size: 20px;">文件系统</a> <a href="/tags/硬件-RAID/" style="font-size: 10px;">硬件 RAID</a>
+  </div>
+</div>
+
+
+  <iframe width="100%" height="119" class="share_self widget"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=0&speed=0&skin=1&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=2479286210&verifier=f4d2c316&dpc=1"></iframe>
+
+
+  <iframe class="widget" frameborder="no" border="0" marginwidth="0" marginheight="0" width="100%" height=86 src="http://music.163.com/outchain/player?type=2&id=64106&auto=0&height=66"></iframe>
+
+
+  <div class="widget tag">
+<h3 class="title">友情链接</h3>
+<ul class="entry">
+<li><a href="http://opiece.me" title="Chillax's Blog" target="_blank">Chillax</a></li>
+</ul>
+</div>
+</aside>
+    <div class="clearfix"></div>
+  </div>
+  <footer id="footer"><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> 疾风知劲草，板荡识忠臣 <br/>
+			勇夫安识义，知者必怀仁</p>
+	</section>
+	 
+	<div class="social-font clearfix">
+		
+		<a href="http://weibo.com/2479286210" target="_blank" title="weibo"></a>
+		
+		
+		
+		<a href="https://github.com/cloud4life" target="_blank" title="github"></a>
+		
+		
+		
+		
+		<a href="mailto:liuyun01@kylinos.cn" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+		<p class="copyright">Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/huangjunhui/concise" target="_blank" title="Concise">Concise</a> © 2016 
+		
+		<a href="http://xy0501.com/about" target="_blank" title="LiuYun">LiuYun</a>
+		
+		<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1256755286'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s95.cnzz.com/z_stat.php%3Fid%3D1256755286%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+		</p>
+</div>
+</footer>
+  <script src="//libs.baidu.com/jquery/2.0.3/jquery.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/counter.js"></script>
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+  $('.fancybox').fancybox();
+})(jQuery);
+</script>
+
+<div id="totop" style="position:fixed;bottom:100px;right:10px;cursor: pointer;">
+<a title="返回顶部"><img src="/imgs/scrollup.png"/></a>
+</div>
+<script src="/js/totop.js"></script>
+
+<script type="text/javascript">
+  (function(w,d,t,u,n,s,e){w['SwiftypeObject']=n;w[n]=w[n]||function(){
+	    (w[n].q=w[n].q||[]).push(arguments);};s=d.createElement(t);
+		  e=d.getElementsByTagName(t)[0];s.async=1;s.src=u;e.parentNode.insertBefore(s,e);
+		    })(window,document,'script','//s.swiftypecdn.com/install/v2/st.js','_st');
+
+			  _st('install','BLd1yiQzwz7iK32F7_hB','2.0.0');
+			  </script>
+
+<!-- mathjax config similar to math.stackexchange -->
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+</body>
+</html>
+
+

@@ -1,0 +1,365 @@
+
+
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script type="text/javascript" src="http://tajs.qq.com/stats?sId=44218032" charset="UTF-8"></script>
+  <script>
+	var _hmt = _hmt || [];
+	(function() {
+	  var hm = document.createElement("script");
+	  hm.src = "//hm.baidu.com/hm.js?7192fa361f5cabb11d8a22de41c1ba8f";
+	  var s = document.getElementsByTagName("script")[0]; 
+	  s.parentNode.insertBefore(hm, s);
+	})();
+	</script>
+  
+  <title>文件系统设计与实现【1】 - I/O 设备 | 会飞的猪的小站</title>
+  <meta name="author" content="LiuYun">
+  
+  <meta name="description" content="在进入本书最重要的章节之前，我们首先需要了解什么是输入输出设备，也就是 IO 设备；IO 子系统是计算机系统中最关键的系统之一，试想如果一个计算机程序没有输入，那么他每一次输出的结果都会是一样的，而如果程序没有输出，那么这个程序运行就没有什么意义；那么问题来了：　　提问：怎样让 IO 子系统完美的契合进入计算机系统，又如何让他发挥最佳的效率呢？">
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <meta property="og:title" content="文件系统设计与实现【1】 - I/O 设备"/>
+  <meta property="og:site_name" content="会飞的猪的小站"/>
+
+  
+    <meta property="og:image" content="undefined"/>
+  
+
+  <link href="/imgs/favicon.ico" rel="icon" type="image/x-ico">
+  <link rel="alternate" href="/atom.xml" title="会飞的猪的小站" type="application/atom+xml">
+  <link rel="stylesheet" href="/css/style.css" media="screen" type="text/css">
+  <!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+  <script src="//libs.baidu.com/jquery/1.8.0/jquery.min.js"></script>
+</head>
+
+
+<body>
+  <header><div>
+		
+			<div id="imglogo">
+				<a href="/"><img src="/imgs/logo.png" alt="会飞的猪的小站" title="会飞的猪的小站"/></a>
+			</div>
+			
+			<div id="textlogo">
+				<h1 class="site-name">会飞的猪的小站</h1>
+				<h2 class="blog-motto"></h2>
+			</div>
+			<nav class="animated">
+				<ul>
+					
+						<li><a href="/">首页</a></li>
+					
+						<li><a href="/archives">归档文件</a></li>
+					
+						<li><a href="/about">关于</a></li>
+					
+	<!--				<li> <a href="/atom.xml">RSS</a> </li> -->
+				</ul>
+			</nav>			
+</div>
+</header>
+  <div id="content" class="inner">
+    <div id="main-col" class="alignleft"><div id="wrapper"><article class="post">
+  
+    <div class="gallery">
+  <div class="photoset">
+    
+      <img src="">
+    
+  </div>
+  <div class="control">
+    <div class="prev"></div>
+    <div class="next"></div>
+  </div>
+</div>
+  
+  <div class="post-content">
+    <header class="article-info clearfix">
+  <h1 itemprop="name">
+	文件系统设计与实现【1】 - I/O 设备
+  </h1>
+  <p class="article-author">By
+    
+      <a href="http://xy0501.com" title="LiuYun">LiuYun</a>
+    </p>
+  <p class="article-time">
+    <time datetime="2015-11-03T00:21:36.000Z" itemprop="datePublished">2015-11-03</time>
+    更新日期:<time datetime="2015-11-09T02:21:22.000Z" itemprop="dateModified">2015-11-09</time>
+    
+  </p>
+</header>
+    <div class="entry">
+		
+			<div id="toc" class="toc-article">
+				<strong class="toc-title">文章目录</strong>
+				<ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#系统架构"><span class="toc-number">1.</span> <span class="toc-text">系统架构</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#经典设备模型"><span class="toc-number">2.</span> <span class="toc-text">经典设备模型</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#经典协议模型"><span class="toc-number">3.</span> <span class="toc-text">经典协议模型</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#中断"><span class="toc-number">4.</span> <span class="toc-text">中断</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#高效数据迁移方式-DMA"><span class="toc-number">5.</span> <span class="toc-text">高效数据迁移方式 DMA</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#设备通信方案"><span class="toc-number">6.</span> <span class="toc-text">设备通信方案</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#操作系统利刃：设备驱动程序"><span class="toc-number">7.</span> <span class="toc-text">操作系统利刃：设备驱动程序</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#案例分析：简单的-IDE-磁盘驱动器"><span class="toc-number">8.</span> <span class="toc-text">案例分析：简单的 IDE 磁盘驱动器</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#总结"><span class="toc-number">9.</span> <span class="toc-text">总结</span></a></li></ol>
+			</div>
+		
+        <p>　　在进入本书最重要的章节之前，我们首先需要了解什么是输入输出设备，也就是 IO 设备；IO 子系统是计算机系统中最关键的系统之一，试想如果一个计算机程序没有输入，那么他每一次输出的结果都会是一样的，而如果程序没有输出，那么这个程序运行就没有什么意义；那么问题来了：<br>　　<font color="red">提问：怎样让 IO 子系统完美的契合进入计算机系统，又如何让他发挥最佳的效率呢？</font><a id="more"></a></p>
+<h2 id="系统架构"><a href="#系统架构" class="headerlink" title="系统架构"></a>系统架构</h2><p>　　我们首先观察一个典型的计算机系统，如图 <a href="#img-3.1">3.1</a> 所示：<span id="img-3.1"></span><center><img src="http://7xo04o.com1.z0.glb.clouddn.com/computer-system.png" alt=""><br><small>图 3.1 系统架构原型</small></center><br>　　图片显示 CPU 与主存通过一条内存总线连接在一起，一些图形等其他高性能 IO 设备则通过 PCI 总线相连，而其他的低速设备如键盘、鼠标、磁盘等则采用一些外围总线相连，比如 SCSI、SATA、USB等。<br>　　也许你会问，为什么要对硬件进行分层设计？原因很简单，一个是基于物理连接的考虑，还有就是造价。一般高速总线由于材质与造价原因都不会太长，因此，只会让他用在 CPU 周边的一些设备，比如内存、显卡等；而低速设备虽然性能达不到高要求，但是也有他自身的优势，你可以在低速总线上挂载很多设备。</p>
+<h2 id="经典设备模型"><a href="#经典设备模型" class="headerlink" title="经典设备模型"></a>经典设备模型</h2><p>　　我们现在来假设一个设备，以便能够更好的理解他，从图 <a href="#img-3.2">3.2</a> 中我们可以看到，设备有两个重要的组成部分，首先是硬件接口，他和软件接口类似，是一个设备暴露给计算机系统可以对他内部进行交互的协议；其次就是硬件设备本体的结构，他们负责执行一些特定的逻辑或者任务，对系统而言，这些都是抽象的。复杂的硬件设备可能还会包含 CPU、内存以及其他的一些辅助芯片共同完成他们的工作，比如硬件 RAID 卡的上面就会有数十万行的固件程序（硬件上的软件）来实现他的功能。<span id="img-3.2"></span><center><img src="http://7xo04o.com1.z0.glb.clouddn.com/device-io.png" alt=""><br><small>图 3.2 经典设备模型</small></center></p>
+<h2 id="经典协议模型"><a href="#经典协议模型" class="headerlink" title="经典协议模型"></a>经典协议模型</h2><p>　　从上图可以得出，这个简化的设备由 3 个寄存器：一个状态寄存器，用来读取当前设备的状态；一个命令寄存器，控制设备执行指令；一个数据寄存器，输入或者从设备输出数据。通过对这些寄存器的操作，可以达到控制这个设备行为的目的。<br>　　现在我们来观察一下这个设备是如何与操作系统进行互动的：<br><figure class="highlight delphi"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">While</span> (STATUS == BUSY)</span><br><span class="line">	;	<span class="comment">// 等待直到设备不再忙碌</span></span><br><span class="line"><span class="keyword">Write</span> data <span class="keyword">to</span> DATA <span class="keyword">register</span></span><br><span class="line"><span class="keyword">Write</span> command <span class="keyword">to</span> COMMAND <span class="keyword">register</span></span><br><span class="line">	（启动设备并执行这些命令）</span><br><span class="line"><span class="keyword">While</span> (STATUS == BUSY)</span><br><span class="line">	;	<span class="comment">// 等待设备完成你的请求</span></span><br></pre></td></tr></table></figure></p>
+<p>　　该协议有 4 个步骤。第一阶段操作系统轮询设备的状态寄存器是否空闲，能否接收指令；第二阶段，操作系统下发数据到数据寄存器；这里要提到的是，我们假设这是一个磁盘设备，系统需要将一个 4k 数据写入到磁盘的某个块，并且让 CPU 参与数据搬移，这样的 IO 我们称之为可编程输入输出（PIO）；第三阶段操作系统下达指令到命令寄存器，这样可以让设备了解到需要执行的命令和数据都已准备妥当，他应该开始工作。最后， OS 只需要再次轮询等待设备返回，通过返回的错误码观察本次 IO 操作是否成功。<br>　　这一个协议很简单有效，但是他并不是一个高效且方便的协议，你可能已经注意到他大量的采用轮询来等待设备返回，轮询其实就是 CPU 空转， CPU 将大量的时间浪费在一个可能很慢的设备上面而不是主动的让出资源给其他的进程调度，这显然是不可取的，我们需要一种更加高效的方法（协议）来支撑我们对设备的访问。<br>　　<font color="red">提问：如何避免采用 CPU 轮询来检查设备的状态，从而降低 CPU 的开销？</font></p>
+<h2 id="中断"><a href="#中断" class="headerlink" title="中断"></a>中断</h2><p>　　工程师们发明了一种很友好的方式来改善低速设备对 CPU 的消耗：中断。相对于反复轮询，中断只需要操作系统发出请求，然后将调用的进程休眠，然后进行上下文切换到另外的进程；当该设备完成最后的操作，他会触发一个硬件中断，使 CPU 跳到一个预先设置好的中断服务例程（ISR）或者更为简单的中断处理函数之中，该中断处理函数只是操作系统的一段代码，他将完成一些请求，比如读取设备数据，或者是错误码，然后操作系统唤醒正在等待 IO 返回的睡眠进程继续执行后面的操作。<br>　　中断允许计算资源以及 IO 的复用，这也是 CPU 利用率提升的关键，下面的时间线说明了一个问题：<center><img src="http://7xo04o.com1.z0.glb.clouddn.com/cpu-disk1.png" alt=""></center><br>　　该图中，进程 1 在 CPU 运行一段时间后发出了一个 I/O 请求到磁盘读取一些数据，在无中断的系统中，系统只能简单的轮询等待数据返回（标志 P 代表轮询）才能继续进程 1 之后的工作；相反，在采用了中断与复用的系统中，操作系统可以利用这一段等待磁盘返回的时间做其他的事情。<center><img src="http://7xo04o.com1.z0.glb.clouddn.com/cpu-disk2.png" alt=""></center><br>　　在这个例子中，在进程 1 访问磁盘的时间里，OS 通过调度进程 2 运行来充分使用 CPU 资源。当磁盘请求完成时，发生中断，唤醒正在睡眠的进程 1。因此，无论是磁盘还是 CPU 的资源在这一个 I/O 请求时间内都是充分利用的。<br>　　值得注意的是，并不是所有的场合都适用中断。例如，一个本身就执行很快的设备（第一次查询就能得到结果），使用中断反而会降低系统的性能。因为进行中断以及上下文切换，本身的代价也是昂贵的，因此如果一个设备运转很快，那么他就不适合采用中断对其进行处理。<br>　　<font color="blue">提示：中断并不总是比 PIO 要好。</font><br>　　虽然中断允许计算与 I/O 重叠，但是最好将他们使用在那些真正意义上的慢速设备。否则，中断本身得到的优势，还不如中断处理与上下文切换消耗。还有一些情况下，大量的中断会使系统过载并导致<a href="#MR96">活锁</a>，在这种情况下，轮询让 OS 有更多的调度控制能力，反而是更加有效的。<br>　　如果设备的速度时快时慢，或者你也不知道他到底快还是慢，那么最好先使用轮询尝试一遍，如果设备仍然没有返回，再使用中断。这样分成两个阶段进行处理，可以达到两全其美的效果。<br>　　在复杂的网络环境中也不能完全都使用中断。若非如此，某个时候突然传入一股巨大的数据流，然后系统启用大量的中断处理程序，这很可能会导致活锁，普通的用户级进程是不允许抢占中断处理程序的，这就导致了资源浪费。譬如一个 Web 网络服务器突然因为<a href="#slashdot"> slashdot effect </a>导致很高的负载，这时候最好偶尔采用轮询来让 CPU 的控制权更多的在 OS 手中，让 Web 服务程序在设备返回之前也能去检查其他的数据包抵达情况。<br>　　还有一种对中断进行优化的手段。那就是中断发生时可以稍微等待其他中断到来，这样可以同时将多个中断一同下达到 CPU 上，这样可以降低中断处理的开销。当然等待也是需要花费时间的，这就涉及到了一个平衡点了。</p>
+<h2 id="高效数据迁移方式-DMA"><a href="#高效数据迁移方式-DMA" class="headerlink" title="高效数据迁移方式 DMA"></a>高效数据迁移方式 DMA</h2><p>　　在上面的经典协议中，有一个问题被我们忽略了，特别是在可编程输入输出（PIO）中，当一大块数据搬移到设备上时，CPU 负担了一个简单而繁重的任务，然而这一段时间本来是可以用来做更有意义的运算，下面的时间线表述了这个问题：<center><img src="http://7xo04o.com1.z0.glb.clouddn.com/cpu-dma1.png" alt=""></center><br>　　从上面的时间线可以看出，进程 1 正在运行，当需要写一些数据进入磁盘时，他启动了 I/O，然后通过 CPU 一个字节一个字节的搬移到磁盘中（图中标有 C 标签的表示搬移数据过程），只有当数据搬移完成 CPU 才被允许继续运行其他的程序。<br>　　<font color="red">提问：如何降低 PIO 的开销？</font><br>　　随着 <a href="#piomode">PIO</a> 过程，CPU 花费了太多的时间用来搬移数据，我们怎么样才能让他卸下手头的数据搬移工作被更加高效的利用呢？<br>　　要解决这个问题，就需要引进一个直接存储器访问（DMA）装置，DMA 引擎的本质就是一个非常特殊的装置，他可以在没有 CPU 干预的情况下在主存与设备之间进行数据搬移。<br>　　DMA的工作原理其实很简单，当需要传递数据时，操作系统发出指令给 DMA 引擎，告诉他需要搬移多少数据，在什么位置，需要搬移到什么设备上即可，然后返回继续执行其他的工作。当 DMA 数据搬移完成，DMA 控制器会引发一个硬件中断，通知操作系统数据搬移完成。修订后的时间线如下：<center><img src="http://7xo04o.com1.z0.glb.clouddn.com/cpu-dma2.png" alt=""></center><br>　　你可以看到，现在数据拷贝都由 DMA 来完成，CPU 可以更好的利用这段时间执行其他的工作。</p>
+<h2 id="设备通信方案"><a href="#设备通信方案" class="headerlink" title="设备通信方案"></a>设备通信方案</h2><p>　　到目前为止，我们已经讲到了部分和 I/O 执行过程的效率问题，不过为了将设备整合进入到系统，还有一些其他的问题需要解决，也许你已经注意到了，我们到现在都没有讲操作系统是如何与设备通信的。<br>　　<font color="red">提问：怎样与设备进行通信？是有直接的 I/O 指令，还是什么其他的方法？</font><br>　　随着时间的推移，设备的通信主要是有 2 种方式。第一种就是使用直接的 I/O 指令进行操作，这些指令指定操作系统发送数据到特定的寄存器之上。比如 X86 芯片中，in 与 out 指令能直接与设备进行交流。发送数据到一个设备时，调用方直接指定需要写入数据的寄存器以及端口和名称，然后在特权模式下执行这些指令。在这个过程中操作系统成了可以直接与设备交流且唯一的实体，这就会导致任何程序都可以读取或者写入磁盘设备，最后的结果可能会导致数据混乱，因为任何的用户程序都可以通过这个方式来获得设备的全部控制权利。<br>　　第二种与设备交流的方式就是内存映射 I/O，通过这种方法可以让设备的寄存器用起来如同一个存储单元一样，系统需要访问这些寄存器只需要发出对主存进行读取、写入等指令即可，硬件会自动将地址路由转发到对应的寄存器上。<br>　　这种方式相对于别的方式并不是拥有多么大的优势，只是不需要特定的指令来对他进行支持罢了。目前，这两种方案都仍然在使用当中。</p>
+<h2 id="操作系统利刃：设备驱动程序"><a href="#操作系统利刃：设备驱动程序" class="headerlink" title="操作系统利刃：设备驱动程序"></a>操作系统利刃：设备驱动程序</h2><p>　　最后一个问题，我们将讨论系统将如何适应设备；我们面对的设备成千上万，他们每一个都有自己的接口，但是进入操作系统之后，我们又需要尽可能的保持他们一致，比如文件系统，我们需要无论是建立在 SCSI 磁盘还是 IDE 磁盘或者 USB 设备之上，都是能统一的，便捷的对他进行访问。那么！<br>　　<font color="red">提问：如何建立一个与设备无关的操作系统？又怎样保证他与设备无关？还如何隐藏 OS 与设备直接的交流？</font><br>　　这个问题是通过一个经典的抽象方法完成的。在操作系统最底层，OS 仍然需要详细了解设备的工作原理，我们称这个软件为设备驱动程序，他把所有的与当前设备交互的细节都包裹在内。看图 <a href="#img-3.3">3.3</a> 可以更好的帮助我们理解 OS 以及 Linux 文件系统的软件栈的设计。<span id="img-3.3"></span><center><img src="http://7xo04o.com1.z0.glb.clouddn.com/os-filesystem1.png" alt=""><br><small>图 3.3 Linux 文件系统软件栈</small></center><br>　　上图是 Linux 文件系统软件栈的一个大概描述，从图中可以看出，应用软件完全可以忽视他正在使用的到底是什么类型的磁盘设备，只用专注与读取或者写入磁盘款数据即可，其他的问题，设备通过相应的驱动程序完成请求。<br>　　值得注意的是，这样封装也有他特定的缺陷。一个特殊设备拥有许多功能特性，但是呈现给上层的只会是一些通用的接口，最会导致这些特殊的功能特性会被闲置。例如在 Linux 中使用 SCSI 设备作为磁盘存储，他拥有非常丰富的错误反馈，但是其他的 ATA/IDE 设备是没有这些特性的，当反馈到上层应用时仅仅得到的是一个通用 IO 错误（EIO），SCSI 的高级特性就被文件系统抛弃掉了。<br>　　还有一个有意思的现象存在，随着时间的推移，越来越多的设备需要支持，而且他们可能都会进入 Linux 内核内，久而久之，他们成为了内核最大的一部分。目前来讲，设备驱动程序已经超过了总代码量的 70%，这相对于 Windows 操作系统来讲，比例是超高的。如果有人和你讲 Linux 内核代码超过了数百万，那么其实里面数以百万计的都是设备驱动程序。但是对于用户来讲，这里面大部分的代码你可能从来就没有用过，更为糟糕的是，这些代码的维护者都不是全职的内核开发者，他们也往往会遇到错误而造成内核崩溃。</p>
+<h2 id="案例分析：简单的-IDE-磁盘驱动器"><a href="#案例分析：简单的-IDE-磁盘驱动器" class="headerlink" title="案例分析：简单的 IDE 磁盘驱动器"></a>案例分析：简单的 IDE 磁盘驱动器</h2><p>　　让我们更近一步，快速的浏览一下一个实际的设备：一个 IDE 磁盘驱动器。我们分析了 IDE 驱动器的设备驱动程序 xv6 源码。IDE 磁盘提供了一个简单的接口系统，包括 4 个类型的寄存器： 控制寄存器、命令寄存器、状态寄存器、错误码寄存器，这些寄存器可以（X86 架构）通过 in 或者 out 指令操作特定的 I/O 地址。<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">Control Register:</span><br><span class="line">	Address 0x3F6 = 0x80 (0000 1RE0): R=reset, E=0 means <span class="string">"enable interrupt"</span></span><br><span class="line"></span><br><span class="line">Command Block Registers:</span><br><span class="line">	Address 0x1F0 = Data Port</span><br><span class="line">	Address 0x1F1 = Error</span><br><span class="line">	Address 0x1F2 = Sector Count</span><br><span class="line">	Address 0x1F3 = LBA low byte</span><br><span class="line">	Address 0x1F4 = LBA mid byte</span><br><span class="line">	Address 0x1F5 = LBA hi byte</span><br><span class="line">	Address 0x1F6 = 1B1D TOP4LBA: B=LBA, D=drive</span><br><span class="line">	Address 0x1F7 = Command/status</span><br><span class="line"></span><br><span class="line">Status Register (Address 0x1F7):</span><br><span class="line">	7     6     5     4    3   2    1     0</span><br><span class="line">	BUSY READY FAULT SEEK DRQ CORR IDDEX ERROR</span><br><span class="line"></span><br><span class="line">Error Register (Address 0x1F1): (check when Status ERROR==1)</span><br><span class="line">	7    6   5  4    3   2    1    0</span><br><span class="line">	BBK UNC MC IDNF MCR ABRT T0NF AMNF</span><br><span class="line"></span><br><span class="line">	BBK = Bad Block</span><br><span class="line">	UNC = Uncorrectable data error</span><br><span class="line">	MC = Media Changed</span><br><span class="line">	IDNF = ID mark Not Found</span><br><span class="line">	MCR = Media Change Requested</span><br><span class="line">	ABRT = Command aborted</span><br><span class="line">	T0NF = Track 0 Not Found</span><br><span class="line">	AMNF = Address Mark Not Found</span><br></pre></td></tr></table></figure></p>
+<p><center><small>图 3.4 IDE 的接口手册</small></center><br>　　假设设备已经初始化完毕，系统与设备之间的协议交流过程如下：</p>
+<blockquote>
+<ol>
+<li><strong>等待设备准备就绪</strong> 读取状态寄存器（0x1F7）直到设备不在忙碌，状态为 READY</li>
+<li><strong>参数写入命令寄存器</strong>　将扇区数量，扇区逻辑块地址（LBA）以及设备号（主设备=0x00 从设备=0x10）写入到命令寄存器中</li>
+<li><strong>执行 I/O 操作</strong> 通过发出读写（READ-WRITE）命令到命令寄存器（0x1F7）</li>
+<li><strong>数据传输</strong> 等待设备状态为 READY 以及 DRQ （设备请求数据），将数据写入到数据端口</li>
+<li><strong>中断回调处理</strong> 简单的情况下，一个扇区数据传输完毕就会触发一个回调，复杂的情况就会允许批处理。当最后一个中断发生时，所有的数据都已处理完毕。</li>
+<li><strong>错误回调处理</strong> 每完成一次操作都会去检查状态寄存器，如果 ERROR 位被设置上了，就去检查错误寄存器获取更为详细的信息。</li>
+</ol>
+</blockquote>
+<p>　　本事例的多数协议信息是从阅读 IDE 驱动 xv6 源码获得的，他初始化完毕之后主要运行了 4 个函数，第一个就是 ide_rw()，如果有别的请求在等待的话他会被添加进请求队列，否则就会直接写到了磁盘。<br><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">int</span> <span class="title">ide_wait_ready</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">while</span> (((<span class="keyword">int</span> r = inb(<span class="number">0x1f7</span>)) &amp; IDE_BSY) || !(r &amp; IDE_DRDY))</span><br><span class="line">        ; <span class="comment">// loop until drive isn’t busy</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">ide_start_request</span><span class="params">(<span class="keyword">struct</span> buf *b)</span> </span>&#123;</span><br><span class="line">    ide_wait_ready();</span><br><span class="line">    outb(<span class="number">0x3f6</span>, <span class="number">0</span>); <span class="comment">// generate interrupt</span></span><br><span class="line">    outb(<span class="number">0x1f2</span>, <span class="number">1</span>); <span class="comment">// how many sectors?</span></span><br><span class="line">    outb(<span class="number">0x1f3</span>, b-&gt;sector &amp; <span class="number">0xff</span>); <span class="comment">// LBA goes here ...</span></span><br><span class="line">    outb(<span class="number">0x1f4</span>, (b-&gt;sector &gt;&gt; <span class="number">8</span>) &amp; <span class="number">0xff</span>); <span class="comment">// ... and here</span></span><br><span class="line">    outb(<span class="number">0x1f5</span>, (b-&gt;sector &gt;&gt; <span class="number">16</span>) &amp; <span class="number">0xff</span>); <span class="comment">// ... and here!</span></span><br><span class="line">    outb(<span class="number">0x1f6</span>, <span class="number">0xe0</span> | ((b-&gt;dev&amp;<span class="number">1</span>)&lt;&lt;<span class="number">4</span>) | ((b-&gt;sector&gt;&gt;<span class="number">24</span>)&amp;<span class="number">0x0f</span>));</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span>(b-&gt;flags &amp; B_DIRTY)&#123;</span><br><span class="line">        outb(<span class="number">0x1f7</span>, IDE_CMD_WRITE); <span class="comment">// this is a WRITE</span></span><br><span class="line">        outsl(<span class="number">0x1f0</span>, b-&gt;data, <span class="number">512</span>/<span class="number">4</span>); <span class="comment">// transfer data too!</span></span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        outb(<span class="number">0x1f7</span>, IDE_CMD_READ); <span class="comment">// this is a READ (no data)</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">ide_rw</span><span class="params">(<span class="keyword">struct</span> buf *b)</span> </span>&#123;</span><br><span class="line">    acquire(&amp;ide_lock);</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">struct</span> buf **pp = &amp;ide_queue; *pp; pp=&amp;(*pp)-&gt;qnext)</span><br><span class="line">        ; <span class="comment">// walk queue</span></span><br><span class="line">    *pp = b; <span class="comment">// add request to end</span></span><br><span class="line">    </span><br><span class="line">    <span class="keyword">if</span> (ide_queue == b) <span class="comment">// if q is empty</span></span><br><span class="line">        ide_start_request(b); <span class="comment">// send req to disk</span></span><br><span class="line">    <span class="keyword">while</span> ((b-&gt;flags &amp; (B_VALID|B_DIRTY)) != B_VALID)</span><br><span class="line">        sleep(b, &amp;ide_lock); <span class="comment">// wait for completion</span></span><br><span class="line">    release(&amp;ide_lock);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">ide_intr</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">struct</span> buf *b;</span><br><span class="line">    acquire(&amp;ide_lock);</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">if</span> (!(b-&gt;flags &amp; B_DIRTY) &amp;&amp; ide_wait_ready() &gt;= <span class="number">0</span>)</span><br><span class="line">        insl(<span class="number">0x1f0</span>, b-&gt;data, <span class="number">512</span>/<span class="number">4</span>); <span class="comment">// if READ: get data</span></span><br><span class="line">    b-&gt;flags |= B_VALID;</span><br><span class="line">    b-&gt;flags &amp;= ˜B_DIRTY;</span><br><span class="line">    wakeup(b); <span class="comment">// wake waiting process</span></span><br><span class="line">        </span><br><span class="line">    <span class="keyword">if</span> ((ide_queue = b-&gt;qnext) != <span class="number">0</span>) <span class="comment">// start next request</span></span><br><span class="line">        ide_start_request(ide_queue); <span class="comment">// (if one exists)</span></span><br><span class="line">    release(&amp;ide_lock);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p><div align="center"><small>图 3.5 IDE xv6 驱动源码（精简版）</small></div><br>　　进程发出磁盘读写数据，然后睡眠等待数据返回。IDE 获取命令后开始往设备下发一个请求（如果是写，可能下发的是数据），in 与 out 指令通过调用第三个函数 ide_rw() 指令分别操作设备，这时候需要等待设备就绪 ide_wait_ready() 以确保驱动能能够正确接收数据，最后当设备操作完毕发出中断后调用 ide_intr() 函数，从设备中读取数据（执行读请求时），然后唤醒正在等待的进程。如果 I/O 等待队列还有其他的请求，则继续启动 IDE 设备执行。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>　　现在，你应该对操作系统与设备直接的交互有了一个基本的了解。中断和 DMA 是两种可以提高 CPU 效率的方案；直接 I/O 指令和内存映射 I/O 是访问设备寄存器的两种方法；最后我们也简要的分析了操作系统设备驱动程序的概念，展现其如何封装底层细节，从而达到统一、简便的对同一类型设备的访问。</p>
+<p><span id="MR96"><font color="grey" size="0.8em">[1] <em>活锁指的是任务或者执行者没有被阻塞，由于某些条件没有满足，导致一直重复尝试，失败，尝试，失败。</em></font></span><br><span id="slashdot"><font color="grey" size="0.8em">[2] <em>slashdot effect 指的是当一个受众广泛的网站介绍了另一个小众的网站后，小众网站流量激增的现象。</em></font></span><br><span id="piomode"><font color="grey" size="0.8em">[3] <em>PIO 模式是一种通过 CPU 执行 I/O 端口指令来进行数据的读写的数据交换模式。是最早先的硬盘数据传输模式，数据传输速率低下，CPU 占有率也很高，大量传输数据时会因为占用过多的 CPU 资源而导致系统停顿，无法进行其它的操作。</em></font></span></p>
+
+    </div>
+    <footer>
+        
+  
+  <div class="categories">
+    <a href="/categories/技术文档/">技术文档</a>
+  </div>
+
+        
+  
+  <div class="tags">
+    <a href="/tags/文件系统/">文件系统</a>
+  </div>
+
+		<div class="bdsharebuttonbox">
+	<a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+	<a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+	<a href="#" class="bds_tqq" data-cmd="tqq" title="分享到腾讯微博"></a>
+	<a href="#" class="bds_renren" data-cmd="renren" title="分享到人人网"></a>
+	<a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+	<a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+	<a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+	<a href="#" class="bds_more" data-cmd="more"></a>
+	<a href="#" class="bds_count" data-cmd="count"></a>
+</div>
+<script>
+window._bd_share_config=
+{
+	"common":{
+		"bdSnsKey":{},
+		"bdText":"",
+		"bdMini":"2",
+		"bdMiniList":false,
+		"bdPic":"",
+		"bdStyle":"0",
+		"bdSize":"24"
+	},
+	"share":{},
+	"image":{
+		"viewList":["qzone","tsina","tqq","renren","weixin","fbook","twi"],
+		"viewText":"分享到：",
+		"viewSize":"24"
+	}
+	/*,
+	"selectShare":{
+		"bdContainerClass":null,
+		"bdSelectMiniList":["qzone","tsina","tqq","renren","weixin","fbook","twi"]
+	}*/
+};
+with(document)0[
+	(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='http://bdimg.share.baidu.com/static/api/js/share.js?v=89860593.js?cdnversion='+~(-new Date()/36e5)
+];
+</script>
+    
+        <div class="clearfix"></div>
+    </footer>
+  </div>
+</article>
+
+ <nav id="pagination" >
+    
+    <a href="/2015/11/05/filesystem-2/" class="alignleft prev" title="文件系统设计与实现【2】 - 磁盘驱动器">文件系统设计与实现【2】 - 磁盘驱动器</a>
+    
+    
+    <a href="/2015/10/30/arm64-xor/" class="alignright next" title="Arm64 异或优化算法的设计与实现">Arm64 异或优化算法的设计与实现</a>
+    
+    <div class="clearfix"></div>
+</nav>
+
+
+
+	
+	<section id="comment">
+		<!-- 多说评论框 start -->
+		<div class="ds-thread" data-thread-key="2015/11/03/filesystem-1/" data-title="文件系统设计与实现【1】 - I/O 设备" data-url="http://xy0501.com/2015/11/03/filesystem-1/"></div>
+		<!-- 多说评论框 end -->
+		<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+		<script type="text/javascript">
+		var duoshuoQuery = {short_name:"liuyun2113"};
+		(function() {
+			var ds = document.createElement('script');
+			ds.type = 'text/javascript';ds.async = true;
+			ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+			ds.charset = 'UTF-8';
+			(document.getElementsByTagName('head')[0] 
+			 || document.getElementsByTagName('body')[0]).appendChild(ds);
+		})();
+		</script>
+		<!-- 多说公共JS代码 end -->
+	</section>
+	
+</div></div>
+    <aside id="sidebar" class="alignright">
+  <div class="search">
+ <!-- <form action="http://zhannei.baidu.com/cse/site" target="_blank" method="get" accept-charset="utf-8"> -->
+  <form>
+    <input type="search" name="q" results="0" placeholder="搜索" id="liuyun_search_input">
+    <input type="hidden" name="q" value="xy0501.com">
+   <!-- <input type="hidden" name="q" value="site:xy0501.com"> -->
+  </form>
+</div>
+
+
+  
+<div class="widget tag">
+  <h3 class="title">分类</h3>
+  <ul class="entry">
+  
+    <li><a href="/categories/技术文档/">技术文档</a><small>15</small></li>
+  
+  </ul>
+</div>
+
+
+  
+<div class="widget tagcloud">
+  <h3 class="title">标签云</h3>
+  <div class="entry">
+    <a href="/tags/Arm64/" style="font-size: 10px;">Arm64</a> <a href="/tags/QML/" style="font-size: 10px;">QML</a> <a href="/tags/Qt/" style="font-size: 10px;">Qt</a> <a href="/tags/Xor/" style="font-size: 10px;">Xor</a> <a href="/tags/megacli/" style="font-size: 10px;">megacli</a> <a href="/tags/文件系统/" style="font-size: 20px;">文件系统</a> <a href="/tags/硬件-RAID/" style="font-size: 10px;">硬件 RAID</a>
+  </div>
+</div>
+
+
+  <iframe width="100%" height="119" class="share_self widget"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=0&speed=0&skin=1&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=2479286210&verifier=f4d2c316&dpc=1"></iframe>
+
+
+  <iframe class="widget" frameborder="no" border="0" marginwidth="0" marginheight="0" width="100%" height=86 src="http://music.163.com/outchain/player?type=2&id=64106&auto=0&height=66"></iframe>
+
+
+  <div class="widget tag">
+<h3 class="title">友情链接</h3>
+<ul class="entry">
+<li><a href="http://opiece.me" title="Chillax's Blog" target="_blank">Chillax</a></li>
+</ul>
+</div>
+</aside>
+    <div class="clearfix"></div>
+  </div>
+  <footer id="footer"><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> 疾风知劲草，板荡识忠臣 <br/>
+			勇夫安识义，知者必怀仁</p>
+	</section>
+	 
+	<div class="social-font clearfix">
+		
+		<a href="http://weibo.com/2479286210" target="_blank" title="weibo"></a>
+		
+		
+		
+		<a href="https://github.com/cloud4life" target="_blank" title="github"></a>
+		
+		
+		
+		
+		<a href="mailto:liuyun01@kylinos.cn" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+		<p class="copyright">Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/huangjunhui/concise" target="_blank" title="Concise">Concise</a> © 2016 
+		
+		<a href="http://xy0501.com/about" target="_blank" title="LiuYun">LiuYun</a>
+		
+		<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1256755286'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s95.cnzz.com/z_stat.php%3Fid%3D1256755286%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+		</p>
+</div>
+</footer>
+  <script src="//libs.baidu.com/jquery/2.0.3/jquery.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/counter.js"></script>
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+  $('.fancybox').fancybox();
+})(jQuery);
+</script>
+
+<div id="totop" style="position:fixed;bottom:100px;right:10px;cursor: pointer;">
+<a title="返回顶部"><img src="/imgs/scrollup.png"/></a>
+</div>
+<script src="/js/totop.js"></script>
+
+<script type="text/javascript">
+  (function(w,d,t,u,n,s,e){w['SwiftypeObject']=n;w[n]=w[n]||function(){
+	    (w[n].q=w[n].q||[]).push(arguments);};s=d.createElement(t);
+		  e=d.getElementsByTagName(t)[0];s.async=1;s.src=u;e.parentNode.insertBefore(s,e);
+		    })(window,document,'script','//s.swiftypecdn.com/install/v2/st.js','_st');
+
+			  _st('install','BLd1yiQzwz7iK32F7_hB','2.0.0');
+			  </script>
+
+<!-- mathjax config similar to math.stackexchange -->
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+</body>
+</html>
+
+

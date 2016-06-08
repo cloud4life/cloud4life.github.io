@@ -1,0 +1,354 @@
+
+
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script type="text/javascript" src="http://tajs.qq.com/stats?sId=44218032" charset="UTF-8"></script>
+  <script>
+	var _hmt = _hmt || [];
+	(function() {
+	  var hm = document.createElement("script");
+	  hm.src = "//hm.baidu.com/hm.js?7192fa361f5cabb11d8a22de41c1ba8f";
+	  var s = document.getElementsByTagName("script")[0]; 
+	  s.parentNode.insertBefore(hm, s);
+	})();
+	</script>
+  
+  <title>文件系统设计与实现【2】 - 磁盘驱动器 | 会飞的猪的小站</title>
+  <meta name="author" content="LiuYun">
+  
+  <meta name="description" content="上一章继续介绍了什么是 IO 设备，这一章节我们将更加深入的介绍一款特别的 IO 设备：磁盘驱动器。计算机系统发展了几十年，磁盘驱动器一直都是数据持久存储的主要形式，也是当前大多数文件系统正常工作的前提条件。因此，了解他的细节更有利于理解文件系统是怎样管理他的。　　提问：如何存储和访问磁盘上的数据？接口又是怎样的？数据在磁盘中是如何布局的？怎样的调度才能获得更好的性能？">
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <meta property="og:title" content="文件系统设计与实现【2】 - 磁盘驱动器"/>
+  <meta property="og:site_name" content="会飞的猪的小站"/>
+
+  
+    <meta property="og:image" content="undefined"/>
+  
+
+  <link href="/imgs/favicon.ico" rel="icon" type="image/x-ico">
+  <link rel="alternate" href="/atom.xml" title="会飞的猪的小站" type="application/atom+xml">
+  <link rel="stylesheet" href="/css/style.css" media="screen" type="text/css">
+  <!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+  <script src="//libs.baidu.com/jquery/1.8.0/jquery.min.js"></script>
+</head>
+
+
+<body>
+  <header><div>
+		
+			<div id="imglogo">
+				<a href="/"><img src="/imgs/logo.png" alt="会飞的猪的小站" title="会飞的猪的小站"/></a>
+			</div>
+			
+			<div id="textlogo">
+				<h1 class="site-name">会飞的猪的小站</h1>
+				<h2 class="blog-motto"></h2>
+			</div>
+			<nav class="animated">
+				<ul>
+					
+						<li><a href="/">首页</a></li>
+					
+						<li><a href="/archives">归档文件</a></li>
+					
+						<li><a href="/about">关于</a></li>
+					
+	<!--				<li> <a href="/atom.xml">RSS</a> </li> -->
+				</ul>
+			</nav>			
+</div>
+</header>
+  <div id="content" class="inner">
+    <div id="main-col" class="alignleft"><div id="wrapper"><article class="post">
+  
+    <div class="gallery">
+  <div class="photoset">
+    
+      <img src="">
+    
+  </div>
+  <div class="control">
+    <div class="prev"></div>
+    <div class="next"></div>
+  </div>
+</div>
+  
+  <div class="post-content">
+    <header class="article-info clearfix">
+  <h1 itemprop="name">
+	文件系统设计与实现【2】 - 磁盘驱动器
+  </h1>
+  <p class="article-author">By
+    
+      <a href="http://xy0501.com" title="LiuYun">LiuYun</a>
+    </p>
+  <p class="article-time">
+    <time datetime="2015-11-05T06:12:36.000Z" itemprop="datePublished">2015-11-05</time>
+    更新日期:<time datetime="2015-12-08T07:58:21.000Z" itemprop="dateModified">2015-12-08</time>
+    
+  </p>
+</header>
+    <div class="entry">
+		
+			<div id="toc" class="toc-article">
+				<strong class="toc-title">文章目录</strong>
+				<ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#协议"><span class="toc-number">1.</span> <span class="toc-text">协议</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#基础结构"><span class="toc-number">2.</span> <span class="toc-text">基础结构</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#简单磁盘"><span class="toc-number">3.</span> <span class="toc-text">简单磁盘</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#单磁道延迟：旋转延迟"><span class="toc-number">3.1.</span> <span class="toc-text">单磁道延迟：旋转延迟</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#多磁道延迟：寻道时间"><span class="toc-number">3.2.</span> <span class="toc-text">多磁道延迟：寻道时间</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#其他细节"><span class="toc-number">3.3.</span> <span class="toc-text">其他细节</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#IO-请求时间-T-I-O"><span class="toc-number">4.</span> <span class="toc-text">IO 请求时间 $T_{I/O}$</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#磁盘调度算法"><span class="toc-number">5.</span> <span class="toc-text">磁盘调度算法</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#SSTF-最短寻道时间优先算法"><span class="toc-number">5.1.</span> <span class="toc-text">SSTF 最短寻道时间优先算法</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#电梯算法（回旋扫描-SCAN-或者单向扫描算法-C-SCAN）"><span class="toc-number">5.2.</span> <span class="toc-text">电梯算法（回旋扫描 SCAN 或者单向扫描算法 C-SCAN）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#SPTF-最短定位时间优先算法"><span class="toc-number">5.3.</span> <span class="toc-text">SPTF 最短定位时间优先算法</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#其他的磁盘调度相关内容"><span class="toc-number">5.4.</span> <span class="toc-text">其他的磁盘调度相关内容</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#总结"><span class="toc-number">6.</span> <span class="toc-text">总结</span></a></li></ol>
+			</div>
+		
+        <p>　　上一章继续介绍了什么是 IO 设备，这一章节我们将更加深入的介绍一款特别的 IO 设备：磁盘驱动器。计算机系统发展了几十年，磁盘驱动器一直都是数据持久存储的主要形式，也是当前大多数文件系统正常工作的前提条件。因此，了解他的细节更有利于理解文件系统是怎样管理他的。<br>　　<font color="red">提问：如何存储和访问磁盘上的数据？接口又是怎样的？数据在磁盘中是如何布局的？怎样的调度才能获得更好的性能？</font><a id="more"></a></p>
+<h2 id="协议"><a href="#协议" class="headerlink" title="协议"></a>协议</h2><p>　　我们先来看看现代的磁盘驱动器的协议。几乎所有的现代磁盘驱动器最基础的协议都很简单，一般都由大量的扇区（512 字节的块）组成，每一块都是可读可写的，扇区从 0 到 n-1 进行编号，这就是驱动器的地址。多个扇区同时读写也是允许的，许多文件系统在读写是一般都是同时写入 4KB 甚至更多的数据。但是当数据刷入盘面的时候，仅仅允许一次原子的写入 512 字节数据（一个扇区）；因此，如果发生不可预见的掉电时，较大的写可能完不成，我们称之为撕裂写。<span id="img-4.1"></span><center><img src="http://7xo04o.com1.z0.glb.clouddn.com/disk1.png" alt=""><br><small>图4.1 磁盘磁道</small></center><br>　　有一些不成文的假定没有写到协议说明之中，人们会假定访问相邻的两个数据块会比访问两个相距甚远的块要快得多，换句话说就是顺序读写要比随机读写快得多。</p>
+<h2 id="基础结构"><a href="#基础结构" class="headerlink" title="基础结构"></a>基础结构</h2><p>　　磁盘看起来就是一个大的盘子，数据存储在圆形的硬表面上，通过磁头读写或修改他上面的薄磁性层来获取或修改数据。磁盘可以有一个以上的盘片，每一个盘片有 2 个面，其中一面为表面。这些盘片是由一些硬质材料（如铝）构成，然后涂上薄薄的磁性层来让数据能够在断电后持续存储。<br>　　盘片都绑定在主轴上面，连接到电机，他会以固定的转速围绕主轴旋转。转速使用“圈/分钟”（RPM）表示，RPM 一个很关键的性能参数，目前主流的磁盘转速一般在 7000-15000 之间。例如，一个磁盘的 RPM 是 10000，那么他单个旋转时间就是 6 毫秒。<br>　　数据通过一种特殊的编码形式分布在每一个盘片表面的同心圆上，我们称这些同心圆为磁道，一个盘片表面分布着成千上万个磁道，紧紧地挤在一起，数百条磁道合在一起才有头发丝大小。为了能够从盘片表面获得数据，每一个盘片都会有一个机械臂，机械臂上有一个磁头，他能对盘片上的磁性层感知（读）与诱导修改（写）。同时，通过机械臂的移动，可以使磁盘定位到所需的磁道上面。<span id="img-4.2"></span><center><img src="http://7xo04o.com1.z0.glb.clouddn.com/disk2.png" alt=""><br><small>图4.2 机械臂与磁道</small></center></p>
+<h2 id="简单磁盘"><a href="#简单磁盘" class="headerlink" title="简单磁盘"></a>简单磁盘</h2><p>　　让我们来理解磁盘在一个磁道时间内使如何工作的。假设我们有一个很简单磁盘，他上面只有一个磁道（图 <a href="#img-4.1">4.1</a>），这条磁道只有 12 个扇区，每一个扇区 512 个字节，并使用数字 0-11 来表示这些扇区，现在盘片由电机驱动围绕主轴旋转，当然光有磁道是没什么用的，还需要用到机械臂和磁头。如图 <a href="#img-4.2">4.2</a>，磁盘安装在机械臂的前端，目前正定位在扇区 6 上面，箭头表示盘片被逆时针旋转。</p>
+<h3 id="单磁道延迟：旋转延迟"><a href="#单磁道延迟：旋转延迟" class="headerlink" title="单磁道延迟：旋转延迟"></a>单磁道延迟：旋转延迟</h3><p>　　为了更好的理解 IO 请求在磁盘上是怎么工作的，最好的方法就是在虚拟的单磁道磁盘上实验，这样磁盘只需盘片旋转即可而不需机械臂运动寻道。现在我们要求读取 0 扇区的数据，磁盘又是怎样为我们服务的呢？那么应该就是盘片通过旋转将 0 扇区运动到磁头下面，然后磁头读取数据即可。这就会有一个等待时间，他是 IO 服务时间的一个重要组成部分（还有寻道时间），也被称为旋转延迟。在这里，我们假定全旋转延迟为 R，那么从 6 扇区运转到 0 扇区需要大约 R/2 的时间。当然如果我们需要读取扇区 5 的数据，那么就会导致最差的情况发生，磁盘需要等待一个全旋转延迟才能满足服务要求。</p>
+<h3 id="多磁道延迟：寻道时间"><a href="#多磁道延迟：寻道时间" class="headerlink" title="多磁道延迟：寻道时间"></a>多磁道延迟：寻道时间</h3><p>　　到目前为止，我们的磁盘还只有一条磁道，这是不现实的；现代的磁盘磁道都是数以百万计的。因此，我们将虚拟的磁盘扩展一点，让他存在 3 个磁道（如图 <a href="#img-4.3">4.3</a> 左）。在图中，磁头定位在最内层的磁道，他包含扇区 24-35，中间磁道包含扇区 12-23，最外层包含第一个扇区起始 0-11。<span id="img-4.3"></span><center><img src="http://7xo04o.com1.z0.glb.clouddn.com/disk3.png" alt=""><br><small>图4.3 三磁道磁盘与磁头（右 包含磁盘寻道动作）</small></center><br>　　要理解 IO 请求是如何到达磁盘扇区的，就需要跟踪这个请求。例如，我需要读取 11 扇区的数据，那么驱动器首先需要将磁头移动到正确的磁道（在我们假定的情况下位于最外道），这称之为寻道过程，这也是 IO 请求最费时的一个操作。寻道也分很多阶段：首先机械臂从 0 开始加速运动到全速，然后滑行到正确的磁道附近，最后慢慢加速进入正确的磁道。这个过程是很耗时的，可能会有 0.5 至 2 毫秒。<br>　　寻道完成之后，磁头已经抵达正确的磁道（如图 <a href="#img-4.3">4.3</a> 右），因为寻道过程中，盘片也在运动，在这种情况下大约运动了 3 个扇区，也就是现在磁头正处在 9 号扇区之上。接下来就是单磁道查找，经过短暂的延迟，磁头到达 11 号扇区，这时候 IO 读写动作发生，这个过程称之为传输。就这样，一个完整的 IO 时间包括：寻道时间、旋转延迟、数据传输时间。</p>
+<h3 id="其他细节"><a href="#其他细节" class="headerlink" title="其他细节"></a>其他细节</h3><p>　　磁盘的设计还包含一些其他有趣的细节技术。在盘片上有一种叫做磁道歪斜的技术，用来做跨磁道连续数据读写优化。如图 <a href="#img-4.4">4.4</a> 所示：<span id="img-4.4"></span><center><img src="http://7xo04o.com1.z0.glb.clouddn.com/disk4.png" alt=""><br><small>图4.4 磁道歪斜设计</small></center><br>　　从图中假设我们需要读取从扇区 22-24 的数据，这期间就需要跨磁道读取数据，当读取完毕扇区 23 数据后，机械臂发生寻道，此时盘片也是在运动的，这时候最内磁道歪斜 3 个扇区刚好匹配上寻道时间，当机械臂切换完毕正好磁头直接落到扇区 24 上，就达到了最优效果。如果不进行歪斜设计，当寻道完毕时，扇区 24 已经在磁头背后，那么就需要继续运转大半个磁道延迟才能访问扇区 24。<br>　　由于盘片是由具有相同圆心的磁道组成，外面的磁道周长肯定比里面的磁道长，所以外面的磁道必然能存储更多的数据。在过去的磁盘中，外磁道与内磁道包含同样数量的扇区个数，所以外磁道的空间利用率比较低，如图 <a href="#img-4.5">4.5</a> (a) 所示。分区位记录（Zoned Bit Recording）能够高效的利用磁盘空间。如图 <a href="#img-4.5">4.5</a> (b)所示，该机制根据磁道与磁盘中心的距离将他们划分为若干区域。这些区域从最外面起进行编号，最外面的区号为 0，每个区域上的磁道都被分配了适当数目的扇区：靠近中心的区域，磁道中所含的扇区要少一些；而外面的区域，磁道包含的扇区数量则要多一些。但是，每个指定的区域内所有的磁道上的扇区个数都是相同的。<span id="img-4.5"></span><center><img src="http://7xo04o.com1.z0.glb.clouddn.com/disk5.jpg" alt=""><br><small>图4.5 分区位记录</small></center><br>　　磁盘由许多盘片层叠组成，串在一个高速旋转的轴上，不同容量的磁盘盘片数量不一致，为了能够加快查找数据的速度，我们将相同编号的磁道虚拟出来一个柱面，然后将扇区编号连续起来，这样发生线性读写时，切换磁头的速度会比磁头寻道时间块。<span id="img-4.6"></span><div style="width: 300px; height: 300px; margin: 0 auto;"><img src="http://7xo04o.com1.z0.glb.clouddn.com/disk12.gif" alt=""><br><small style="padding-left: 100px;">图4.6 磁盘柱面</small></div><br>　　现代磁盘驱动器还有一个重要的组成部分：缓存。由于历史的原因，他也被称作磁道缓冲区。一般磁盘缓存很小，通常只有 8-16MB 大小。当磁盘读取数据时，驱动器会将读到的数据缓存起来，以便下一次 IO 发生在相同磁道时使驱动快速响应。<br>　　当系统发生写动作时，磁盘有 2 个选择：当数据写到他的缓存中立刻返回或者是等数据写入磁道后再返回。前者被称作回写缓存（WB），后者被称作写透模式（WT）。从字面意思也能很清楚的理解，WB 模式将数据缓存到磁盘的缓存中，这样会使驱动器更快，但是如果此时掉电，那将是非常危险的，数据并没有刷入到磁盘之中，但系统驱动认为数据已经完全写入，导致数据不一致；另外，如果程序或者驱动要求写入的数据具有一定的顺序，那么 WB 模式是不能保证的。<br>　　<font color="drakgreen">题外话：空间分析方法</font><br>　　在物理课上有一种有意思的方法，基本上可以用来解决大部分的问题，他就是单位换算，在计算机系统里面也是可以拿来分析数据的。接下来我们举一个例子来观察是怎么用的，已知一个磁盘他的磁盘转速是 10K RPM（即每分钟旋转 10000 次），我们需要得到磁盘每转动一次需要的时间，怎么计算呢？<center><img src="http://7xo04o.com1.z0.glb.clouddn.com/disk6.png" alt=""></center><br>　　正如你可以从上面的例子看出来，单位换算的分析手段也可以用来做 IO 请求的分析，比如你可以得到一个磁盘的传输速率是 100MB/s，那么请问多上时间能传输 512KB 的数据呢？<center><img src="http://7xo04o.com1.z0.glb.clouddn.com/disk7.png" alt=""></center></p>
+<h2 id="IO-请求时间-T-I-O"><a href="#IO-请求时间-T-I-O" class="headerlink" title="IO 请求时间 $T_{I/O}$"></a>IO 请求时间 $T_{I/O}$</h2><p>　　我们已经拥有了一个磁盘的简单模型，现在可以对他进行一定的性能分析。首先我们已经知道 IO 请求时间主要由三个部分组成：<br>$$T_{I/O} = T_{seek} + T_{rotation} + T_{transfer} \tag{1}\label{1}$$<br>　　IO 的速率能更好的反映磁盘性能，通过单位时间内通过的数据的多少测量他的速率：$$R_{I/O} = \frac{Size_{transfer}}{T_{I/O}} \tag{2} \label{2}$$<br>　　通过接下来的运算，让我们得出最佳的 IO 请求时间的参数。磁盘使用过程中，基本上我们关心 2 种类型的 IO 请求，第一种是随机访问 IO，例如 4KB 数据大小的访问，这种请求在数据库访问中很常见；第二种是顺序 IO，这种访问形式十分普遍，因此是非常重要的。为了更好的理解这两种 IO 类型的差别，我们选用了 2 款不同的希捷的磁盘作为对比，一款是 Cheetah 15K.5，他是一款高性能 SCSI 磁盘；另一款是 Barracuda，大容量 SATA 磁盘，二者的详细参数可以参见图 <a href="#img-4.7">4.7</a><span id="img-4.7"></span><center><img src="http://7xo04o.com1.z0.glb.clouddn.com/disk8.png" alt=""><br><small>图4.7 SCSI 与 SATA 磁盘规格对比</small></center><br>　　从上面的数据可以看出来，他们具有完全不同的特点，也可以侧面反映两个重要的磁盘市场的关注点。在要求“高性能”的磁盘市场，要求驱动器设计得尽可能旋转得快，更短的寻道时间，并能够迅速的传输数据；在要求“大容量”的市场，就要求能有更多的可被使用的空间。<br>　　我们继续关注那些数据，通过他们我们可以计算出一些我们想要得到的信息。首先来看看随机读写性能，假设发出一个 4KB 的随机读，通过计算可以知道在 Cheetah 磁盘上这样的一个读需要多少时间。$$T_{seek} = 4ms, T_{rotation} = 2ms, T_{transfer} = 30 microsecs \tag{3} \label{3}$$<br>　　<font color="blue">提示：尽可能让磁盘顺序读写，如果实在不能顺序读写，也应当将块大小设置得越大越好。</font><br>　　现在我们来看看这些结果是如何得到的吧。首先平均寻道时间为 4ms，这是厂商标示的；通常一个完整的 IO 请求可能会需要两到三倍的时间，因为有可能会跨盘片进行访问。平均的旋转延迟是直接从 RPM 计算出来的，15000RPM 等于 250RPS （圈/秒），因此每旋转一周时间为 4ms，那平均每一个请求大概运行半周，约为 2ms。最好传输时间就是一般传输时间的峰值，他的耗时是相对来说很小，才 30 微妙，而 1000 微妙才等于 1ms。<br>　　通过上面的公式计算得出，Cheetah 磁盘的 $T_{I/O}$ 耗时大约为 6ms，经过公式 \ref{2} 计算得出，他的随机 IO 速率约为 0.66MB/s。通过同样的方法，Barracuda 磁盘的 $T_{I/O}$ 为 13.2ms，速率为 0.31MB/s，是 Cheetah 磁盘的一半。<br>　　计算完随机 I/O 速率，让我们继续来看顺序读写。假设现在有一个 100MB 大小的、单一连续的 IO 请求到达，因此 Cheetah 和 Barracuda 的 IO 访问时间分别为 800ms 与 950ms，很接近峰值速率 125MB/s 和 105MB/s 的速率。图 <a href="#img-4.8">4.8</a> 总结了两款磁盘的性能数据。<span id="img-4.8"></span><center><img src="http://7xo04o.com1.z0.glb.clouddn.com/disk9.png" alt=""><br><small>图4.8 Cheetah 与 Barracuda 磁盘性能对比</small></center></p>
+<h2 id="磁盘调度算法"><a href="#磁盘调度算法" class="headerlink" title="磁盘调度算法"></a>磁盘调度算法</h2><p>　　由于 IO 请求的高消耗，操作系统承担起了决定 IO 发送到磁盘的顺序。虽然无法确切的知道每一次 IO 请求的时间，但是也能够从 IO 请求的长度，离当前磁头的位置等预估本次 IO 所需要的时间，然后磁盘调度程序根据当前所有缓存起来的 IO 请求决定首先发起哪一个 IO。</p>
+<h3 id="SSTF-最短寻道时间优先算法"><a href="#SSTF-最短寻道时间优先算法" class="headerlink" title="SSTF 最短寻道时间优先算法"></a>SSTF 最短寻道时间优先算法</h3><p>　　这是一种早期的磁盘调度算法，他总是选择离当前磁道最近的 IO 请求作为下一次发出的 IO。如图 <a href="#img-4.9">4.9</a> 假定我们有 2 个 IO 请求，一个位于扇区 21（中间磁道），一个位于扇区 2（外磁道），当前我们处于最内磁道，那么最好的调度算法就是先发出对扇区 21 请求的 IO，然后再发出对扇区 2 的 IO 请求，这样能达到最优的调度。然而磁盘的物理结构对于 OS 来说是不透明的，他只看到一个个的块地址，幸运的是，操作系统可以直接采用地址就近原则（NBF）对下一个最接近的块地址发出请求。第二个问题就致命：饥饿。想象一下，一个离当前磁头比较远的块，有可能很久才能得到调用，甚至永远都得不到调用，这对发出该请求的应用程序来说是致命的。<br><span id="img-4.9"></span><center><img src="http://7xo04o.com1.z0.glb.clouddn.com/disk10.png" alt=""><br><small>图4.9 SSTF 调度请求 21 和 2 扇区</small></center><br>　　<font color="red">提问：我们如何既能使用类似于 SSTF 般的调度算法，又能避免 IO 请求饿死呢？</font></p>
+<h3 id="电梯算法（回旋扫描-SCAN-或者单向扫描算法-C-SCAN）"><a href="#电梯算法（回旋扫描-SCAN-或者单向扫描算法-C-SCAN）" class="headerlink" title="电梯算法（回旋扫描 SCAN 或者单向扫描算法 C-SCAN）"></a>电梯算法（回旋扫描 SCAN 或者单向扫描算法 C-SCAN）</h3><p>　　这种扫描方式是最传统、最经典的方式了，他因类似于电梯运转模式一样，总是从一端到另一端，然后折返再折返，如此循环。就像电梯一样，如果当前磁道没有请求，那么他就不会停下来，总会从最内磁道到最外磁道然后折返。SCAN 模式不会饿死任何一个 IO，这也带来了不必要的开销，即使队列中只有一个 IO，他同样只会等待磁头触及最外圈之后折返回来才执行。C-SCAN 类似于 SCAN，只不过他总是从内圈扫描到外圈，然后迅速返回到内圈，返回途中不接受任何的 IO 请求。<br>　　<font color="red">提问：SCAN 虽然考虑到了所有的 IO 请求，但是旋转延迟呢？</font></p>
+<h3 id="SPTF-最短定位时间优先算法"><a href="#SPTF-最短定位时间优先算法" class="headerlink" title="SPTF 最短定位时间优先算法"></a>SPTF 最短定位时间优先算法</h3><p>　　在讨论 SPTF 之前，先来看一个例子，如图 <a href="#img-4.10">4.10</a><span id="img-4.10"></span><center><img src="http://7xo04o.com1.z0.glb.clouddn.com/disk11.png" alt=""><br><small>图4.10 SSTF 并不总是表现优秀</small></center><br>　　上图中，我们需要访问扇区 16 和扇区 8，采用一般的 SSTF 算法，应该是先发出对扇区 16 的请求，然后才是扇区 8 的请求，这是对的，但是假如现在寻道时间要比旋转时间短，那又该如何呢？从扇区 30 寻道至扇区 8，同时盘片也在旋转，如果刚好落在扇区 8 之前，那岂不是比等待扇区 16 旋转一周要快一些？这就是 SPTF 算法的精髓，也就是说，对于这样的 IO 请求，应该是区别对待，哪一个能够尽快定位，那么就发出对他的请求，这是 SSTF 的一种变种。</p>
+<h3 id="其他的磁盘调度相关内容"><a href="#其他的磁盘调度相关内容" class="headerlink" title="其他的磁盘调度相关内容"></a>其他的磁盘调度相关内容</h3><p>　　关于磁盘调度还有一些其他的内容，在这里稍微交代一下。在旧的计算机系统中，操作系统接管了所有的磁盘调度，他会决定如何发起请求，顺序是怎样的，磁盘就尽可能的简单，该干什么就干什么。在如今新的系统中，磁盘已经可以自己缓存 IO 指令，他能够主动的决定如何发起请求，等等。另外一个就是 IO 请求合并，比如在图 <a href="#img-4.10">4.10</a> 中，需要访问扇区 24 和 25，那么系统机会将这两个单独的请求合并为一个请求下发到磁盘一同进行。最后就是 IO 等待，每一次 IO 发起之后，操作系统可能会让他稍微等待下一个 IO 到来，因为也许下一个 IO 请求会比当前 IO 更适合当前的磁盘调度。当然，什么时候等待，等待多久，这就是一个值得考虑的问题，这里就不讨论了，如何你感兴趣，可以去看看 Linux 内核调度是如何等待 IO 的。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>　　本章我们已经了解了磁盘的物理结构和他的一些通用的调度算法，如何你想深入了解，可以在网上查阅相关的资料。现在我们已经对磁盘模型有了概念，可以在他之上做一些有意思的事情了。</p>
+
+    </div>
+    <footer>
+        
+  
+  <div class="categories">
+    <a href="/categories/技术文档/">技术文档</a>
+  </div>
+
+        
+  
+  <div class="tags">
+    <a href="/tags/文件系统/">文件系统</a>
+  </div>
+
+		<div class="bdsharebuttonbox">
+	<a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+	<a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+	<a href="#" class="bds_tqq" data-cmd="tqq" title="分享到腾讯微博"></a>
+	<a href="#" class="bds_renren" data-cmd="renren" title="分享到人人网"></a>
+	<a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+	<a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+	<a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+	<a href="#" class="bds_more" data-cmd="more"></a>
+	<a href="#" class="bds_count" data-cmd="count"></a>
+</div>
+<script>
+window._bd_share_config=
+{
+	"common":{
+		"bdSnsKey":{},
+		"bdText":"",
+		"bdMini":"2",
+		"bdMiniList":false,
+		"bdPic":"",
+		"bdStyle":"0",
+		"bdSize":"24"
+	},
+	"share":{},
+	"image":{
+		"viewList":["qzone","tsina","tqq","renren","weixin","fbook","twi"],
+		"viewText":"分享到：",
+		"viewSize":"24"
+	}
+	/*,
+	"selectShare":{
+		"bdContainerClass":null,
+		"bdSelectMiniList":["qzone","tsina","tqq","renren","weixin","fbook","twi"]
+	}*/
+};
+with(document)0[
+	(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='http://bdimg.share.baidu.com/static/api/js/share.js?v=89860593.js?cdnversion='+~(-new Date()/36e5)
+];
+</script>
+    
+        <div class="clearfix"></div>
+    </footer>
+  </div>
+</article>
+
+ <nav id="pagination" >
+    
+    <a href="/2015/11/10/filesystem-3/" class="alignleft prev" title="文件系统设计与实现【3】 - RAID 磁盘阵列">文件系统设计与实现【3】 - RAID 磁盘阵列</a>
+    
+    
+    <a href="/2015/11/03/filesystem-1/" class="alignright next" title="文件系统设计与实现【1】 - I/O 设备">文件系统设计与实现【1】 - I/O 设备</a>
+    
+    <div class="clearfix"></div>
+</nav>
+
+
+
+	
+	<section id="comment">
+		<!-- 多说评论框 start -->
+		<div class="ds-thread" data-thread-key="2015/11/05/filesystem-2/" data-title="文件系统设计与实现【2】 - 磁盘驱动器" data-url="http://xy0501.com/2015/11/05/filesystem-2/"></div>
+		<!-- 多说评论框 end -->
+		<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+		<script type="text/javascript">
+		var duoshuoQuery = {short_name:"liuyun2113"};
+		(function() {
+			var ds = document.createElement('script');
+			ds.type = 'text/javascript';ds.async = true;
+			ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+			ds.charset = 'UTF-8';
+			(document.getElementsByTagName('head')[0] 
+			 || document.getElementsByTagName('body')[0]).appendChild(ds);
+		})();
+		</script>
+		<!-- 多说公共JS代码 end -->
+	</section>
+	
+</div></div>
+    <aside id="sidebar" class="alignright">
+  <div class="search">
+ <!-- <form action="http://zhannei.baidu.com/cse/site" target="_blank" method="get" accept-charset="utf-8"> -->
+  <form>
+    <input type="search" name="q" results="0" placeholder="搜索" id="liuyun_search_input">
+    <input type="hidden" name="q" value="xy0501.com">
+   <!-- <input type="hidden" name="q" value="site:xy0501.com"> -->
+  </form>
+</div>
+
+
+  
+<div class="widget tag">
+  <h3 class="title">分类</h3>
+  <ul class="entry">
+  
+    <li><a href="/categories/技术文档/">技术文档</a><small>15</small></li>
+  
+  </ul>
+</div>
+
+
+  
+<div class="widget tagcloud">
+  <h3 class="title">标签云</h3>
+  <div class="entry">
+    <a href="/tags/Arm64/" style="font-size: 10px;">Arm64</a> <a href="/tags/QML/" style="font-size: 10px;">QML</a> <a href="/tags/Qt/" style="font-size: 10px;">Qt</a> <a href="/tags/Xor/" style="font-size: 10px;">Xor</a> <a href="/tags/megacli/" style="font-size: 10px;">megacli</a> <a href="/tags/文件系统/" style="font-size: 20px;">文件系统</a> <a href="/tags/硬件-RAID/" style="font-size: 10px;">硬件 RAID</a>
+  </div>
+</div>
+
+
+  <iframe width="100%" height="119" class="share_self widget"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=0&speed=0&skin=1&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=2479286210&verifier=f4d2c316&dpc=1"></iframe>
+
+
+  <iframe class="widget" frameborder="no" border="0" marginwidth="0" marginheight="0" width="100%" height=86 src="http://music.163.com/outchain/player?type=2&id=64106&auto=0&height=66"></iframe>
+
+
+  <div class="widget tag">
+<h3 class="title">友情链接</h3>
+<ul class="entry">
+<li><a href="http://opiece.me" title="Chillax's Blog" target="_blank">Chillax</a></li>
+</ul>
+</div>
+</aside>
+    <div class="clearfix"></div>
+  </div>
+  <footer id="footer"><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> 疾风知劲草，板荡识忠臣 <br/>
+			勇夫安识义，知者必怀仁</p>
+	</section>
+	 
+	<div class="social-font clearfix">
+		
+		<a href="http://weibo.com/2479286210" target="_blank" title="weibo"></a>
+		
+		
+		
+		<a href="https://github.com/cloud4life" target="_blank" title="github"></a>
+		
+		
+		
+		
+		<a href="mailto:liuyun01@kylinos.cn" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+		<p class="copyright">Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/huangjunhui/concise" target="_blank" title="Concise">Concise</a> © 2016 
+		
+		<a href="http://xy0501.com/about" target="_blank" title="LiuYun">LiuYun</a>
+		
+		<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1256755286'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s95.cnzz.com/z_stat.php%3Fid%3D1256755286%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+		</p>
+</div>
+</footer>
+  <script src="//libs.baidu.com/jquery/2.0.3/jquery.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/counter.js"></script>
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+  $('.fancybox').fancybox();
+})(jQuery);
+</script>
+
+<div id="totop" style="position:fixed;bottom:100px;right:10px;cursor: pointer;">
+<a title="返回顶部"><img src="/imgs/scrollup.png"/></a>
+</div>
+<script src="/js/totop.js"></script>
+
+<script type="text/javascript">
+  (function(w,d,t,u,n,s,e){w['SwiftypeObject']=n;w[n]=w[n]||function(){
+	    (w[n].q=w[n].q||[]).push(arguments);};s=d.createElement(t);
+		  e=d.getElementsByTagName(t)[0];s.async=1;s.src=u;e.parentNode.insertBefore(s,e);
+		    })(window,document,'script','//s.swiftypecdn.com/install/v2/st.js','_st');
+
+			  _st('install','BLd1yiQzwz7iK32F7_hB','2.0.0');
+			  </script>
+
+<!-- mathjax config similar to math.stackexchange -->
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+</body>
+</html>
+
+

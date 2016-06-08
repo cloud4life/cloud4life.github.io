@@ -1,0 +1,351 @@
+
+
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script type="text/javascript" src="http://tajs.qq.com/stats?sId=44218032" charset="UTF-8"></script>
+  <script>
+	var _hmt = _hmt || [];
+	(function() {
+	  var hm = document.createElement("script");
+	  hm.src = "//hm.baidu.com/hm.js?7192fa361f5cabb11d8a22de41c1ba8f";
+	  var s = document.getElementsByTagName("script")[0]; 
+	  s.parentNode.insertBefore(hm, s);
+	})();
+	</script>
+  
+  <title>文件系统设计与实现【3】 - RAID 磁盘阵列 | 会飞的猪的小站</title>
+  <meta name="author" content="LiuYun">
+  
+  <meta name="description" content="由于 I/O 操作很耗时，甚至可能成为系统性能的瓶颈，我们希望磁盘越快越好；由于我们每天产生的数据越来越多，我们希望磁盘越大越好；由于数据可能没有备份，我们希望磁盘越稳定可靠越好。　　提问：如何创建既反应快又容量大且可靠的磁盘呢？">
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <meta property="og:title" content="文件系统设计与实现【3】 - RAID 磁盘阵列"/>
+  <meta property="og:site_name" content="会飞的猪的小站"/>
+
+  
+    <meta property="og:image" content="undefined"/>
+  
+
+  <link href="/imgs/favicon.ico" rel="icon" type="image/x-ico">
+  <link rel="alternate" href="/atom.xml" title="会飞的猪的小站" type="application/atom+xml">
+  <link rel="stylesheet" href="/css/style.css" media="screen" type="text/css">
+  <!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+  <script src="//libs.baidu.com/jquery/1.8.0/jquery.min.js"></script>
+</head>
+
+
+<body>
+  <header><div>
+		
+			<div id="imglogo">
+				<a href="/"><img src="/imgs/logo.png" alt="会飞的猪的小站" title="会飞的猪的小站"/></a>
+			</div>
+			
+			<div id="textlogo">
+				<h1 class="site-name">会飞的猪的小站</h1>
+				<h2 class="blog-motto"></h2>
+			</div>
+			<nav class="animated">
+				<ul>
+					
+						<li><a href="/">首页</a></li>
+					
+						<li><a href="/archives">归档文件</a></li>
+					
+						<li><a href="/about">关于</a></li>
+					
+	<!--				<li> <a href="/atom.xml">RSS</a> </li> -->
+				</ul>
+			</nav>			
+</div>
+</header>
+  <div id="content" class="inner">
+    <div id="main-col" class="alignleft"><div id="wrapper"><article class="post">
+  
+    <div class="gallery">
+  <div class="photoset">
+    
+      <img src="">
+    
+  </div>
+  <div class="control">
+    <div class="prev"></div>
+    <div class="next"></div>
+  </div>
+</div>
+  
+  <div class="post-content">
+    <header class="article-info clearfix">
+  <h1 itemprop="name">
+	文件系统设计与实现【3】 - RAID 磁盘阵列
+  </h1>
+  <p class="article-author">By
+    
+      <a href="http://xy0501.com" title="LiuYun">LiuYun</a>
+    </p>
+  <p class="article-time">
+    <time datetime="2015-11-10T05:53:36.000Z" itemprop="datePublished">2015-11-10</time>
+    更新日期:<time datetime="2015-11-23T07:43:54.000Z" itemprop="dateModified">2015-11-23</time>
+    
+  </p>
+</header>
+    <div class="entry">
+		
+			<div id="toc" class="toc-article">
+				<strong class="toc-title">文章目录</strong>
+				<ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#RAID-接口与内部机制"><span class="toc-number">1.</span> <span class="toc-text">RAID 接口与内部机制</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#故障模式"><span class="toc-number">2.</span> <span class="toc-text">故障模式</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#如何评估一个-RAID"><span class="toc-number">3.</span> <span class="toc-text">如何评估一个 RAID</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#RAID-0：条带化"><span class="toc-number">4.</span> <span class="toc-text">RAID 0：条带化</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#块大小（Chunk-Sizes）"><span class="toc-number">4.1.</span> <span class="toc-text">块大小（Chunk Sizes）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#回到对-RAID0-的分析"><span class="toc-number">4.2.</span> <span class="toc-text">回到对 RAID0 的分析</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#评估-RAID-的性能"><span class="toc-number">4.3.</span> <span class="toc-text">评估 RAID 的性能</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#继续分析-RAID0"><span class="toc-number">4.4.</span> <span class="toc-text">继续分析 RAID0</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#RAID-1：镜像"><span class="toc-number">5.</span> <span class="toc-text">RAID 1：镜像</span></a></li></ol>
+			</div>
+		
+        <p>　　由于 I/O 操作很耗时，甚至可能成为系统性能的瓶颈，我们希望磁盘越快越好；由于我们每天产生的数据越来越多，我们希望磁盘越大越好；由于数据可能没有备份，我们希望磁盘越稳定可靠越好。<br>　　<font color="red">提问：如何创建既反应快又容量大且可靠的磁盘呢？</font><a id="more"></a><br>　　在本章中，我们集中介绍廉价冗余阵列（RAID）。在 20 世纪 80 年代，加州大学伯克利分校的研究人员设计了一种利用多个磁盘思路来构建更好的存储系统的技术：RAID，这种技术可以帮助我们打造更大，更快，更可靠的磁盘系统。对外，RAID 看起来像是一块可读可写的磁盘；在内部，他就像一个复杂的猛兽，拥有多个磁盘，内存（易失型与非易失型），以及多个处理器。硬件 RAID 非常的像一台电脑系统，专门用来管理一组磁盘的任务。<br>　　RAID 相对于单盘来讲有许多的优势。首先就是并行 I/O 带来的性能提升；其次，他的容量大大提高了；最后，RAID 提高了数据的可靠性，当发生单盘故障时，可以恢复到原来的状态，同时对外继续提供服务，看起来好像并没有发生错误一样。<br>　　<font color="blue">提示：RAID 可以无需修改业务逻辑就部署上线</font><br>　　当我们给一个业务系统添加一个新的功能部件时，需要考虑到是否需要将现有软件重写，甚至是要修改硬件架构。而 RAID 他的业务系统无关性促使他能够更加成功，管理员并不需要针对他做任何的修改直接将他当做普通的 SCSI 磁盘使用即可。<br>　　现在开始了解 RAID 的一些细节，包括 RAID 的接口、故障模式；围绕容量、可靠性和性能这三个坐标轴方向讨论 RAID 的设计与实现。</p>
+<h2 id="RAID-接口与内部机制"><a href="#RAID-接口与内部机制" class="headerlink" title="RAID 接口与内部机制"></a>RAID 接口与内部机制</h2><p>　　RAID 就如同一个普通的单盘一样，可以被文件系统或者其他的应用程序读写操作。当文件系统发出 I/O 请求之后，RAID 内部需要经过计算然后发出一个或者多个 I/O 请求进行对后端磁盘的访问，至于如何发出 I/O 请求，发出怎样的 I/O 请求，这决定于选择的 RAID 级别，这在后文会详细说明。举个简单的例子，比如将一份数据分别写到 RAID 的 2 个磁盘之上，这就需要 RAID 每获取一个逻辑 I/O 就发出 2 个实际的 I/O 请求。<br>　　一个 RAID 磁盘阵列系统，通常会是一个独立的硬件，他配有专门的线（SCSI 或 SATA）连接到主机。RAID 系统内部相当的复杂，他通常通过运行特定的固件程序进行 RAID 计算；当发生数据读写时，易失性存储单元 DRAM 将会对数据进行缓存。当然，采用非易失性的存储单元缓存那将会更加的安全，也可以采用专门的异或计算部件进行奇偶校验计算（某些特定的 RAID 级别，在后文会详细说明）。更高级的 RAID 系统，就会是一个专门的计算机系统：他有处理器、存储器和磁盘。当然，如果不需要采用硬件 RAID 方案，Linux 内核也已经帮助你实现了软件 RAID 方案。</p>
+<h2 id="故障模式"><a href="#故障模式" class="headerlink" title="故障模式"></a>故障模式</h2><p>　　要从不同的角度理解 RAID 模型，我们必须对 RAID 的故障模式有一定的了解。首先我们来介绍第一个 RAID 的故障模式：fail-stop（故障停止），在这个模式下，磁盘只会工作在两种状态之下：工作中或者失败。处于“工作中”的磁盘，他的每一个块都是可读可写的；处于“失败”磁盘时，我们认为他永久丢失了。RAID 旨在检测和恢复某些类型的磁盘故障，因此知道什么地方发生故障是 RAID 设计的关键，在磁盘阵列中，RAID控制器的硬件（或软件）可以马上监测到磁盘发生了故障。<br>　　暂时我们不考虑一些复杂的故障模式，比如磁盘损坏，或者扇区故障等，这些都会在后文中详细进行说明。</p>
+<h2 id="如何评估一个-RAID"><a href="#如何评估一个-RAID" class="headerlink" title="如何评估一个 RAID"></a>如何评估一个 RAID</h2><p>　　我们可以创建多种方式的 RAID，每一种都会有自己的特点，我们必须搞清楚每一种方法的优势与劣势。<br>　　对于 RAID 的设计评估，我们需要透过三个方面进行分析。首先就是容量，给定 N 个磁盘，有多少实际的容量会分配给 RAID 呢？如果不添加冗余，很明显就是 N 个磁盘容量。若是采用备份的形式，那就只有 N/2 的可用容量。要是采用奇偶校验算法的方式创建 RAID，那么容量就会在 N 至 N/2 之间。其次被考虑是可靠性，发生多大的故障是能被 RAID 所接受的？在上节介绍的 fail-stop 模式中，一旦发生故障就有可能会导致 RAID 失败，在后面的章节（数据完整性）中，我们将考虑如何处理更复杂的故障模式。最后需要考虑的就是性能，性能的评估是比较有难度的，他很大程度上依赖于外部对磁盘阵列的工作量，所以对进行性能评估需要采用一组经典的工作负载模型来进行评测。<br>　　基于上述考虑，我们来具体分析三种实际的 RAID 设计：RAID 0（条带化），RAID 1（镜像），RAID 4/5（奇偶校验冗余）。</p>
+<h2 id="RAID-0：条带化"><a href="#RAID-0：条带化" class="headerlink" title="RAID 0：条带化"></a>RAID 0：条带化</h2><p>　　RAID 0 并不是一个真正的 RAID，因为他不存在奇偶校验冗余；但是他采用了 RAID 通用的条带化设计，另外，他的磁盘容量和性能也是值得深入理解的。下图就是由 4 个磁盘组成的最简单的条带化设计：<span id="img-5.1"></span><center><img src="http://7xo04o.com1.z0.glb.clouddn.com/raids1.png" alt=""><br><small>图5.1 RAID0 简单的条带化设计</small></center><br>　　从图 <a href="#img-5.1">5.1</a> 中可以初步理解什么是条带：将块以循环的形式分散到这一组磁盘中。这种方法在读写大块数据时，尽可能的并行。图中块 0,1,2,3 都在同一个条带上。在这个例子中，每一个条带在每一个磁盘中都只有一个块，其实完全不必是这样，如图 <a href="#img-5.2">5.2</a>：<span id="img-5.2"></span><center><img src="http://7xo04o.com1.z0.glb.clouddn.com/raids2.png" alt=""><br><small>图5.2 多个块的条带设计</small></center><br>　　在这个例子中，我们将两个 4KB 的块放到了同一个磁盘上，然后才继续对下一块磁盘编码。因此，这种 RAID 阵列的 Chunk Size 大小为 8KB，因此条带的大小为 32KB。<br>　　<font color="drakgreen">题外话：RAID 地址映射问题</font><br>　　在研究 RAID 性能、可靠性、容量之前，需要先了解一下 RAID 自身的地址映射问题，当上层应用程序发起 I/O 之后，RAID 驱动程序得到了一个逻辑地址，那么就需要将他转换为实际的物理地址，才能将数据写到相对应的磁盘上面。在这个简单的 RAID 等级中（chunk=1，block=4KB），可以很简单的就通过公式计算得到：</p>
+<p><center><code>Disk　　= A % number_of_disks</code><br><code>Offset　= A / number_of_disks</code></center><br>　　这里的计算都是整形计算，比如 <code>4/3=1</code> 而不是 1.33333。假如我们需要直到编号为 14 的块位于哪个位置？通过公式 <code>14%2=2</code> 计算得出他位于磁盘 2 上，通过 <code>14/4=3</code> 得出位于磁盘 2 的 3 号块上（从 0 开始编号）。通过这样的手段，你也可以计算其他的编号。</p>
+<h3 id="块大小（Chunk-Sizes）"><a href="#块大小（Chunk-Sizes）" class="headerlink" title="块大小（Chunk Sizes）"></a>块大小（Chunk Sizes）</h3><p>　　Chunk Size 是一个影响性能的关键因素。假如选择一个很小的块大小，那么对于单文件的读写将会被分配到不同的磁盘之上，这样会对单文件的读写并行起来，然而，所有磁盘最大的定位时间就会变成该文件访问的定位时间；如果选择一个较大的 Chunk Size，那将会减小单文件内的并发性能，只能依赖同时发起多个 IO 请求以实现高吞吐量，当然，大块会减少 IO 请求的定为时间。综上所述，我们没有办法给出一个确定的最优 Chunk Size，只能根据实际的应用场景综合考虑，得出一个比较合适的 Chunk Size。在接下来的讨论中，我们假设阵列采用的 Chunk Size 大小为 4KB，尽管大多数磁盘阵列采用的是 64KB 甚至更大，但对于我们讨论技术细节来讲是无所谓的，怎么简单怎么来。</p>
+<h3 id="回到对-RAID0-的分析"><a href="#回到对-RAID0-的分析" class="headerlink" title="回到对 RAID0 的分析"></a>回到对 RAID0 的分析</h3><p>　　现在我们评估条带化带来的容量、可靠性和性能。对于 RAID0 来讲，容量自然是很棒的，给他 N 个磁盘，你就能得到 N 个磁盘的容量；可靠性方面就不敢恭维，如果其中任意的磁盘发生错误，那么对不起，所有的数据就都丢了；性能表现确实非常的优秀，只要 RAID0 正常工作，那在他内部所有的磁盘都将为你的 I/O 请求服务。</p>
+<h3 id="评估-RAID-的性能"><a href="#评估-RAID-的性能" class="headerlink" title="评估 RAID 的性能"></a>评估 RAID 的性能</h3><p>　　我们可以从两个不同的方面分析 RAID 的性能。第一：单一请求延迟，因为他会帮助我们得出在一个逻辑 I/O 请求过程中是否存在并发。第二：稳态带宽，因为 RAID 通常应用于高性能的场景，稳定的带宽是至关重要的。<br>　　为了能够更好的理解吞吐量，我们现在对 RAID 施加一些工作负载。假定有两种工作负载：顺序和随机。例如，一个请求访问的是从磁盘的 B 地址开始至 B+1 地址，我们认为这就是连续访问 I/O，连续 I/O 在许多的环境很常见，他是非常重要的。又假如一个随机请求第一个访问地址为 4000，然后接下来访问 55000，接下来又到了 20100 等等，这就是随机负载，数据库应用就是典型的这种访问模式。当然，在实际的应用场景中，真正的负载不可能这么纯粹，往往是混合着两种不同负载在运转着的，为了简单起见，我们只分析处理这两种情况。<br>　　顺序读写是磁盘最有效的工作方式，他只需要少量的时间进行寻道与等待旋转，大部分的时间都用在了数据传输之上；随机读写则刚好相反，大部分的时间用在了寻道，只有少量的时间被用来传输数据。<br>　　为了方便我们分析这两种读写方式的差异，我们假设顺序读写满负载速率为 S MB/s，随机读写满负载速率为 R MB/s，一般情况下，S 都要比 R 大的多。现在我们根据磁盘的参数来计算一下这一块磁盘的 S 与 R 的值。<br>　　<code>假设磁盘的平均寻道时间： 7ms; 平均旋转等待时间： 3ms; 磁盘传输速率： 50MB/s</code><br>　　假设顺序读写每次 I/O 平均传输的数据量为 10M，随机读写每次 I/O 平均传输 10KB，计算 S 首先需要计算顺序 I/O 的访问时间，总共的访问时间由寻道时间加上旋转等待时间以及磁盘传输时间组成，传输 50MB 需要 1s，则传输 10MB 只需要 200ms，加上寻道时间与旋转等待时间，总共耗时 210ms，通过公式计算得出：$$S=\frac{Amount\ of\ Data}{Time\ to\ access}=\frac{10\ MB}{210\ ms}=47.52\ MB/s$$<br>　　同理，得出传输 10KB 数据需要时间 0.195ms，那么：$$R=\frac{Amount\ of\ Data}{Time\ to\ access} = \frac{10\ KB}{10.195\ ms} = 0.981\ MB/s$$<br>　　从计算接过来看，顺序读写比随机读写快得了大约 50 倍，这是非常直观的差距。</p>
+<h3 id="继续分析-RAID0"><a href="#继续分析-RAID0" class="headerlink" title="继续分析 RAID0"></a>继续分析 RAID0</h3><p>　　结合上文，根据 RAID0 磁盘的响应时间与单块磁盘相差无几，所以他只是简单的将请求重定向到了后端的磁盘之上；从吞吐量来看，他等同于磁盘数量 N 乘以 S（单个磁盘的顺序读写速率），对于随机 I/O，他的速率等同与 N 乘以 R（单个磁盘的随机读写速率）。正如我们所见，他就是进行了一个简单的相乘，他的结果可以当做为其他级别 RAID的极限。</p>
+<h2 id="RAID-1：镜像"><a href="#RAID-1：镜像" class="headerlink" title="RAID 1：镜像"></a>RAID 1：镜像</h2><p>　　</p>
+
+    </div>
+    <footer>
+        
+  
+  <div class="categories">
+    <a href="/categories/技术文档/">技术文档</a>
+  </div>
+
+        
+  
+  <div class="tags">
+    <a href="/tags/文件系统/">文件系统</a>
+  </div>
+
+		<div class="bdsharebuttonbox">
+	<a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+	<a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+	<a href="#" class="bds_tqq" data-cmd="tqq" title="分享到腾讯微博"></a>
+	<a href="#" class="bds_renren" data-cmd="renren" title="分享到人人网"></a>
+	<a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+	<a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+	<a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+	<a href="#" class="bds_more" data-cmd="more"></a>
+	<a href="#" class="bds_count" data-cmd="count"></a>
+</div>
+<script>
+window._bd_share_config=
+{
+	"common":{
+		"bdSnsKey":{},
+		"bdText":"",
+		"bdMini":"2",
+		"bdMiniList":false,
+		"bdPic":"",
+		"bdStyle":"0",
+		"bdSize":"24"
+	},
+	"share":{},
+	"image":{
+		"viewList":["qzone","tsina","tqq","renren","weixin","fbook","twi"],
+		"viewText":"分享到：",
+		"viewSize":"24"
+	}
+	/*,
+	"selectShare":{
+		"bdContainerClass":null,
+		"bdSelectMiniList":["qzone","tsina","tqq","renren","weixin","fbook","twi"]
+	}*/
+};
+with(document)0[
+	(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='http://bdimg.share.baidu.com/static/api/js/share.js?v=89860593.js?cdnversion='+~(-new Date()/36e5)
+];
+</script>
+    
+        <div class="clearfix"></div>
+    </footer>
+  </div>
+</article>
+
+ <nav id="pagination" >
+    
+    <a href="/2015/11/16/filesystem-4/" class="alignleft prev" title="文件系统设计与实现【4】 - 文件与目录">文件系统设计与实现【4】 - 文件与目录</a>
+    
+    
+    <a href="/2015/11/05/filesystem-2/" class="alignright next" title="文件系统设计与实现【2】 - 磁盘驱动器">文件系统设计与实现【2】 - 磁盘驱动器</a>
+    
+    <div class="clearfix"></div>
+</nav>
+
+
+
+	
+	<section id="comment">
+		<!-- 多说评论框 start -->
+		<div class="ds-thread" data-thread-key="2015/11/10/filesystem-3/" data-title="文件系统设计与实现【3】 - RAID 磁盘阵列" data-url="http://xy0501.com/2015/11/10/filesystem-3/"></div>
+		<!-- 多说评论框 end -->
+		<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+		<script type="text/javascript">
+		var duoshuoQuery = {short_name:"liuyun2113"};
+		(function() {
+			var ds = document.createElement('script');
+			ds.type = 'text/javascript';ds.async = true;
+			ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+			ds.charset = 'UTF-8';
+			(document.getElementsByTagName('head')[0] 
+			 || document.getElementsByTagName('body')[0]).appendChild(ds);
+		})();
+		</script>
+		<!-- 多说公共JS代码 end -->
+	</section>
+	
+</div></div>
+    <aside id="sidebar" class="alignright">
+  <div class="search">
+ <!-- <form action="http://zhannei.baidu.com/cse/site" target="_blank" method="get" accept-charset="utf-8"> -->
+  <form>
+    <input type="search" name="q" results="0" placeholder="搜索" id="liuyun_search_input">
+    <input type="hidden" name="q" value="xy0501.com">
+   <!-- <input type="hidden" name="q" value="site:xy0501.com"> -->
+  </form>
+</div>
+
+
+  
+<div class="widget tag">
+  <h3 class="title">分类</h3>
+  <ul class="entry">
+  
+    <li><a href="/categories/技术文档/">技术文档</a><small>15</small></li>
+  
+  </ul>
+</div>
+
+
+  
+<div class="widget tagcloud">
+  <h3 class="title">标签云</h3>
+  <div class="entry">
+    <a href="/tags/Arm64/" style="font-size: 10px;">Arm64</a> <a href="/tags/QML/" style="font-size: 10px;">QML</a> <a href="/tags/Qt/" style="font-size: 10px;">Qt</a> <a href="/tags/Xor/" style="font-size: 10px;">Xor</a> <a href="/tags/megacli/" style="font-size: 10px;">megacli</a> <a href="/tags/文件系统/" style="font-size: 20px;">文件系统</a> <a href="/tags/硬件-RAID/" style="font-size: 10px;">硬件 RAID</a>
+  </div>
+</div>
+
+
+  <iframe width="100%" height="119" class="share_self widget"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=0&speed=0&skin=1&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=2479286210&verifier=f4d2c316&dpc=1"></iframe>
+
+
+  <iframe class="widget" frameborder="no" border="0" marginwidth="0" marginheight="0" width="100%" height=86 src="http://music.163.com/outchain/player?type=2&id=64106&auto=0&height=66"></iframe>
+
+
+  <div class="widget tag">
+<h3 class="title">友情链接</h3>
+<ul class="entry">
+<li><a href="http://opiece.me" title="Chillax's Blog" target="_blank">Chillax</a></li>
+</ul>
+</div>
+</aside>
+    <div class="clearfix"></div>
+  </div>
+  <footer id="footer"><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> 疾风知劲草，板荡识忠臣 <br/>
+			勇夫安识义，知者必怀仁</p>
+	</section>
+	 
+	<div class="social-font clearfix">
+		
+		<a href="http://weibo.com/2479286210" target="_blank" title="weibo"></a>
+		
+		
+		
+		<a href="https://github.com/cloud4life" target="_blank" title="github"></a>
+		
+		
+		
+		
+		<a href="mailto:liuyun01@kylinos.cn" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+		<p class="copyright">Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/huangjunhui/concise" target="_blank" title="Concise">Concise</a> © 2016 
+		
+		<a href="http://xy0501.com/about" target="_blank" title="LiuYun">LiuYun</a>
+		
+		<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1256755286'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s95.cnzz.com/z_stat.php%3Fid%3D1256755286%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+		</p>
+</div>
+</footer>
+  <script src="//libs.baidu.com/jquery/2.0.3/jquery.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/counter.js"></script>
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+  $('.fancybox').fancybox();
+})(jQuery);
+</script>
+
+<div id="totop" style="position:fixed;bottom:100px;right:10px;cursor: pointer;">
+<a title="返回顶部"><img src="/imgs/scrollup.png"/></a>
+</div>
+<script src="/js/totop.js"></script>
+
+<script type="text/javascript">
+  (function(w,d,t,u,n,s,e){w['SwiftypeObject']=n;w[n]=w[n]||function(){
+	    (w[n].q=w[n].q||[]).push(arguments);};s=d.createElement(t);
+		  e=d.getElementsByTagName(t)[0];s.async=1;s.src=u;e.parentNode.insertBefore(s,e);
+		    })(window,document,'script','//s.swiftypecdn.com/install/v2/st.js','_st');
+
+			  _st('install','BLd1yiQzwz7iK32F7_hB','2.0.0');
+			  </script>
+
+<!-- mathjax config similar to math.stackexchange -->
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+</body>
+</html>
+
+

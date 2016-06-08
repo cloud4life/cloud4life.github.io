@@ -1,0 +1,359 @@
+
+
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script type="text/javascript" src="http://tajs.qq.com/stats?sId=44218032" charset="UTF-8"></script>
+  <script>
+	var _hmt = _hmt || [];
+	(function() {
+	  var hm = document.createElement("script");
+	  hm.src = "//hm.baidu.com/hm.js?7192fa361f5cabb11d8a22de41c1ba8f";
+	  var s = document.getElementsByTagName("script")[0]; 
+	  s.parentNode.insertBefore(hm, s);
+	})();
+	</script>
+  
+  <title>文件系统设计与实现【5】 - 简单文件系统实现 | 会飞的猪的小站</title>
+  <meta name="author" content="LiuYun">
+  
+  <meta name="description" content="这一章开始，我们将慢慢深入对文件系统的理解。本章将介绍一个简单的文件系统 vsfs（very simple file system）。他是一个典型的 UNIX 文件系统的简化版本，被我们用来介绍一些基础的，但也在目前文件系统中大量运用的磁盘结构、访问方法和策略等。　　文件系统是一个纯粹的软件，不像我们开发 CPU 和虚拟内存一样，需要添加一些硬件特性的支持。由于建立文件系统具有极大的灵活性，市面上存在了包括 AFS 到 ZFS 各种类型的文件系统，他们各自具有不同的数据结构，都发挥着各自的优势，自然，也会有自己的劣势。因此我们学习文件系统的方法就是通过实例进行学习：首先这一章介绍一个简单的文件系统 vsfs，然后继续学习一系列真实的文件系统，理解他们在实践中的不同。">
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <meta property="og:title" content="文件系统设计与实现【5】 - 简单文件系统实现"/>
+  <meta property="og:site_name" content="会飞的猪的小站"/>
+
+  
+    <meta property="og:image" content="undefined"/>
+  
+
+  <link href="/imgs/favicon.ico" rel="icon" type="image/x-ico">
+  <link rel="alternate" href="/atom.xml" title="会飞的猪的小站" type="application/atom+xml">
+  <link rel="stylesheet" href="/css/style.css" media="screen" type="text/css">
+  <!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+  <script src="//libs.baidu.com/jquery/1.8.0/jquery.min.js"></script>
+</head>
+
+
+<body>
+  <header><div>
+		
+			<div id="imglogo">
+				<a href="/"><img src="/imgs/logo.png" alt="会飞的猪的小站" title="会飞的猪的小站"/></a>
+			</div>
+			
+			<div id="textlogo">
+				<h1 class="site-name">会飞的猪的小站</h1>
+				<h2 class="blog-motto"></h2>
+			</div>
+			<nav class="animated">
+				<ul>
+					
+						<li><a href="/">首页</a></li>
+					
+						<li><a href="/archives">归档文件</a></li>
+					
+						<li><a href="/about">关于</a></li>
+					
+	<!--				<li> <a href="/atom.xml">RSS</a> </li> -->
+				</ul>
+			</nav>			
+</div>
+</header>
+  <div id="content" class="inner">
+    <div id="main-col" class="alignleft"><div id="wrapper"><article class="post">
+  
+    <div class="gallery">
+  <div class="photoset">
+    
+      <img src="">
+    
+  </div>
+  <div class="control">
+    <div class="prev"></div>
+    <div class="next"></div>
+  </div>
+</div>
+  
+  <div class="post-content">
+    <header class="article-info clearfix">
+  <h1 itemprop="name">
+	文件系统设计与实现【5】 - 简单文件系统实现
+  </h1>
+  <p class="article-author">By
+    
+      <a href="http://xy0501.com" title="LiuYun">LiuYun</a>
+    </p>
+  <p class="article-time">
+    <time datetime="2015-11-17T02:50:41.000Z" itemprop="datePublished">2015-11-17</time>
+    更新日期:<time datetime="2015-11-20T08:02:23.000Z" itemprop="dateModified">2015-11-20</time>
+    
+  </p>
+</header>
+    <div class="entry">
+		
+			<div id="toc" class="toc-article">
+				<strong class="toc-title">文章目录</strong>
+				<ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#理解文件系统"><span class="toc-number">1.</span> <span class="toc-text">理解文件系统</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#磁盘组织结构"><span class="toc-number">2.</span> <span class="toc-text">磁盘组织结构</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#文件组织结构：inode"><span class="toc-number">3.</span> <span class="toc-text">文件组织结构：inode</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#多级索引"><span class="toc-number">4.</span> <span class="toc-text">多级索引</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#目录组织结构"><span class="toc-number">5.</span> <span class="toc-text">目录组织结构</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#空闲空间管理：Bitmap"><span class="toc-number">6.</span> <span class="toc-text">空闲空间管理：Bitmap</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#读写访问路径"><span class="toc-number">7.</span> <span class="toc-text">读写访问路径</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#从磁盘读取一个文件"><span class="toc-number">7.1.</span> <span class="toc-text">从磁盘读取一个文件</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#往磁盘写入一个文件"><span class="toc-number">7.2.</span> <span class="toc-text">往磁盘写入一个文件</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#缓存与队列"><span class="toc-number">8.</span> <span class="toc-text">缓存与队列</span></a></li></ol>
+			</div>
+		
+        <p>　　这一章开始，我们将慢慢深入对文件系统的理解。本章将介绍一个简单的文件系统 vsfs（very simple file system）。他是一个典型的 UNIX 文件系统的简化版本，被我们用来介绍一些基础的，但也在目前文件系统中大量运用的磁盘结构、访问方法和策略等。<br>　　文件系统是一个纯粹的软件，不像我们开发 CPU 和虚拟内存一样，需要添加一些硬件特性的支持。由于建立文件系统具有极大的灵活性，市面上存在了包括 AFS 到 ZFS 各种类型的文件系统，他们各自具有不同的数据结构，都发挥着各自的优势，自然，也会有自己的劣势。因此我们学习文件系统的方法就是通过实例进行学习：首先这一章介绍一个简单的文件系统 vsfs，然后继续学习一系列真实的文件系统，理解他们在实践中的不同。<a id="more"></a></p>
+<h2 id="理解文件系统"><a href="#理解文件系统" class="headerlink" title="理解文件系统"></a>理解文件系统</h2><p>　　对文件系统的理解，需要从一下两个方面入手：<br>　　第一个方面：数据结构。我们首先需要知晓文件系统是怎么利用磁盘的结构来组织数据的。在我们 vsfs 中就是简单的使用了数组来表示数据块或其他对象；而在复杂的 XFS 等文件系统中则会使用更为复杂的树状结构。<br>　　第二个方面：文件系统的函数接口。一个进程是如何将 open()、read()、write() 等函数映射到文件系统中，在执行这一个特殊的系统调用时又读取了哪些结构体？写入了哪些结构体？如何调用才更有效率？<br>　　当你理解了文件系统的数据结构和函数访问接口，那么你对文件系统就有了一个大概的认知，对组织脉络有了一定的了解。</p>
+<h2 id="磁盘组织结构"><a href="#磁盘组织结构" class="headerlink" title="磁盘组织结构"></a>磁盘组织结构</h2><p>　　现在开始我们开始建立 vsfs　文件系统磁盘组织结构。我们要做的第一件事就是把磁盘分割为块，为了简单起见，我们采用了常用的文件系统块大小：4KB。那么现在磁盘将会处理成 N×4KB 的块，而后被标记为 0 到 N-1。假设我们有一个很小的磁盘，大小为 64个块：<center><img src="http://7xo04o.com1.z0.glb.clouddn.com/vsfs1.png" alt=""></center><br>　　磁盘被切割完毕，我们需要在这个磁盘上放置一些用户数据，在任何文件系统上，绝大部分空间都是用来保存用户数据的，这部分区域被称做数据区。同样，为了简单，我们将其中的后 56 个块保留为数据区域。<center><img src="http://7xo04o.com1.z0.glb.clouddn.com/vsfs2.png" alt=""></center><br>　　文件系统除了能保存数据，还需要能追踪每一个文件的具体信息。这些信息是元数据的关键部分，包含了一个文件的大小，文件所有者以及访问权限，访问和修改时间等等信息。为了能保存这些信息，文件系统定义个一个 inode 结构体（后文会详细阐述）。自然，定义了 inode 数据，也需要找一处区域保存他，假设用磁盘的 5 个块保存 inode 节点（图中用 I 来表示）：<center><img src="http://7xo04o.com1.z0.glb.clouddn.com/vsfs3.png" alt=""></center><br>　　真实的 inode 节点并不大，一般只有 128 至 256 字节。假设每个 inode 节点为 256 字节，一个 4KB 的块可以保存 16 个 inode，我们预留了 5 个块用来保存 inode 节点，这样最多可以保存 80 个节点，也就是说，我们这个文件系统最多能够放置 80 个文件；当然，如果我们采用更多的区域保存 inode 节点，也就可以放置更多的文件。<br>　　我们的文件系统已经有了数据块（D）和节点（I），但是还缺少一个重要的部分，也许你已经猜到了，那就是标记一个数据块是否已经被使用。当然，跟踪块是否被使用可以采用多种方法，我们还是一如既往的采用了比较简单而且主流的方法：bitmap 结构。一个使用在数据区叫做 Data Bitmap，一个使用在 inode 表叫做 Inode Bitmap。一个 bitmap 就是一个数据结构：每一位都被用来标记对应的对象是否空闲（0）或是被使用（1）。自然，保存他也需要一部分磁盘空间：<center><img src="http://7xo04o.com1.z0.glb.clouddn.com/vsfs4.png" alt=""></center><br>　　你肯定注意到了使用 4KB 来保存 bitmap 结构有点过分了，这样的一个 bitmap 区域已经足够标记 32K 个对象了（4KB×8），可我们总共才只有 80 个 inode 和 56 个数据块。不过为了方便设计，我们还是采用 4KB 吧。<br>　　好吧，还剩下最后一个块，那放点啥呢？不如把超级块放到这里吧，他就用 S 来标记好了，超级块保存着这个特殊文件系统的特殊信息，比如有多少个 inode 和数据块，inode 表的起始地址（本事例为 block 3）等等，当然还有标示这个文件系统的魔数。<center><img src="http://7xo04o.com1.z0.glb.clouddn.com/vsfs5.png" alt=""></center><br>　　当操作系统挂载文件系统时，会首先读取超级块信息，然后开始初始化各类参数，然后将磁盘卷附加到文件系统树上。当卷内的文件被访问时，系统将借此准确的找到需要的磁盘结构。</p>
+<h2 id="文件组织结构：inode"><a href="#文件组织结构：inode" class="headerlink" title="文件组织结构：inode"></a>文件组织结构：inode</h2><p>　　毫不夸张的讲，文件系统中最重要的结构就是 inode，在所有的文件系统中都会存在这样或者类似的结构。名字 inode 是 index node 的简写，由 Unix 作者 Ken Thompson 起的，最初的节点采用链表排列为一组，访问他的索引号就能获取到这个 node 节点。<br>　　每一个 inode 都被一个叫做 inumber 的数字关联起来，早期我们管他叫做文件的 low-lovel name。在 vsfs 中，给定一个 inumber 就能计算得出相应的 inode 对应的磁盘上的位置。例如，采用 vsfs 的 inode 表如下：<center><img src="http://7xo04o.com1.z0.glb.clouddn.com/vsfs6.png" alt=""></center><br>　　为了获取 inode 为 32 的文件的数据，我们首先将计算 inode 区域的偏移（32×sizeof(inode)==8192），把这个值加上 inode 起始地址 12KB，得到 inode 结构所在的块的地址为 20KB。另外，磁盘并不是字节寻址，而是由扇区组成，每个通常都为 512 字节，因此，我们应该读取扇区 40 来获取 inode 结构的数据。总结公式去下：<br><figure class="highlight armasm"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">blk </span>= (inumber * sizeof(inode_t)) / <span class="keyword">blockSize</span><br><span class="line"></span><span class="symbol">sector</span> = ((<span class="keyword">blk </span>* <span class="keyword">blockSize) </span>+ inodeStartAddr) / sectorSize</span><br></pre></td></tr></table></figure></p>
+<p>　　inode 节点几乎包含了文件所有的信息：类型（普通文件，目录或者其他）、大小、分配的块编号、保护信息（文件拥有者，访问权限）、时间信息（创建，修改，最后一次访问）以及文件在磁盘数据块的位置信息，这些都是文件的元数据，事实上，文件系统内部的所有非用户数据都被叫做元数据。下面列举了 ext2 文件系统的 Inode 信息：<span id="img-7.1"></span><center><img src="http://7xo04o.com1.z0.glb.clouddn.com/vsfs7.png" alt=""><br><small>图7.1 Ext2 Inode 结构信息</small></center><br>　　在设计 inode 时，最关键的就是如何标示数据块的位置。有一个简单的办法就是在 inode 内部设置一个直接指向磁盘地址的指针，每个指针指向一个数据某个文件的磁盘块。</p>
+<h2 id="多级索引"><a href="#多级索引" class="headerlink" title="多级索引"></a>多级索引</h2><p>　　直接指向数据块是很方便快捷，但也存在弊端，如果需要存储的是一个大文件，那么就需要在 inode 节点结构中定义非常多这样的指针，那么会造成结构很大。为了解决这一个问题，文件系统的设计者在 inode 中引入了间接指针，他的存在不是为了指向数据块，而是指向一个包含更多指针的块，这些块里面包含的都是一些指向数据块的指针。因此，现在 vsfs 变成了一个 inode 由固定数量（12 个）的直接指针和一个间接指针组成了，假设一个块大小为 4KB，磁盘地址长度为 4 字节，那么 inode 可以额外的访问 1024 个指针，最大文件大小就由此变为了<code>(12 + 1024) * 4KB = 4144KB</code>了。<br>　　当然，在上面的基础上，你也许要支持更大的文件，为了达到目的，我们只需要为 inode 添加另外一种指针：双重间接指针。他是指向一个包含间接指针的块，通过添加双重指针，我们增加了 4KB×4KB 的块进行指针存储，那么最大文件大小因此变为了<code>(12 + 1024 + 1024 * 1024) * 4KB = 4198MB</code>，也就是咱们支持 4GB 大小的文件了。如果需要支持更大呢？没错，三重间接指针，我们来看看 EXT2 是怎么做的，如图 <a href="#img-7.2">7.2</a>：<span id="img-7.2"></span><center><img src="http://7xo04o.com1.z0.glb.clouddn.com/vsfs8.jpg" alt=""><br><small>图7.2 Ext2 Inode 分级索引示意图</small></center><br>　　行文至此，我相信大部分读者都能理解什么是多级索引，他是一种非平衡树进行逐级指向数据块的方式，在先行的主流文件系统中是被普遍使用的，比如 Linux 系统的 Ext2 和 Ext3，NetApp 的 WAFL 以及原始的 Unix 文件系统。其他的文件系统，包括 SGI 的 XFS 和 Linux 的 Ext4 他的使用范围则不再局限于指针。<br>　　也许你想知道：为什么要使用这种非平衡树？不能使用被的方法吗？其实并不是没有别的方法，只不过这种不平衡的设计是有利于保存小文件的。如果文件很小，我们能够直接使用那 12 个直接指针就能包含掉 12×4KB 以下的数据文件，这样对检索效率都是很有意义的。当然，inode 设计是可以继续发挥你的想象，只要能够查询到我们的用户数据即可。</p>
+<blockquote>
+<p>据一项数据统计中，我们平常产生的数据有 90.84% 是小于 64KB 的，而剩下的 10% 的数据文件占到了磁盘空间的 90%。也就是说，这种不平衡设计有利于我们保存那 90% 的文件。同样数据显示：如果块大小设置为 1KB，则只有 30% 到 50% 的文件能放到一个块内；块大小设置为 4KB，这个比率能达到 60% 到 70%。虽然块大小设置为 4KB 会造成数据空间浪费，但浪费的空间在大文件所占 90% 磁盘空间比率面前是不足为虑的。</p>
+</blockquote>
+<h2 id="目录组织结构"><a href="#目录组织结构" class="headerlink" title="目录组织结构"></a>目录组织结构</h2><p>　　在文件系统中，目录也是一种文件，每个目录同样有一个 inode 号，在 inode 表也会有 inode 节点，只不过在 inode 结构中将 type 标记为 directory 而不是 regular file。目录的 inode 也会有数据块，同样保存在磁盘的数据块区域。<br>　　和大多数文件系统一样，vsfs 的目录组织结构很简单，就是一对入口名称和 inumber 的列表。那么在存储目录信息的数据块上会有一个字符串以及数字，当然，每一个字符串也还会有一个长度（我们假设长度可变的情况存在）。<br>　　假设有一个 dir 目录，inode 号为 5，他中间会有三个文件（foo、bar 和 foobar），他们的 inode 号分别为 12、13 和 24。那么 dir 目录在磁盘上的数据就会类似于：<br>　　<img src="http://7xo04o.com1.z0.glb.clouddn.com/vsfs9.png" alt=""><br>　　在这个例子中，每一个文件入口都有一个 inode 号，记录长度（名字长度加上剩余空间长度的字节和），字符串长度（名字的实际长度）和最终的文件入口名称（文件或目录名）。每一个目录都会有一个额外的入口“.”和“..”，“.”代表的就是当前目录，“..”代表的是父目录。<br>　　由于我们在目录的数据块内保存了他的每一个文件入口的记录长度，当使用 unlink 等函数删除一个文件时，他在目录中的文件入口信息并不会一并删除，只是将 inumber 值设置为 0，标志为可被新的文件入口使用。当新创建的文件入口记录长度小于这个旧的九记录长度时，可以直接覆盖写入即可。<br>　　目录的存储记录也不仅仅线性列表这种方式，只要是能够查询到他的文件入口数据就可以。例如 XFS 文件系统就是将目录的数据保存在 B+ 数表格中，这样做会使得创建文件时不需要像线性列表一样进行全局扫描（不过需要在创建之前保证目录名没有被使用过），速度会快很多。</p>
+<h2 id="空闲空间管理：Bitmap"><a href="#空闲空间管理：Bitmap" class="headerlink" title="空闲空间管理：Bitmap"></a>空闲空间管理：Bitmap</h2><p>　　文件系统必须要能够追踪到每一个 inode 和数据块的状态，这样才能让新文件或目录可以进行空间分配，在 vsfs 中，我们设置了两个 bitmap 来做这件事。例如，当我们创建一个文件，我们必须要分配一个 inode 给这个文件，文件系统将开始遍历 bitmap 查找一个空闲的 inode 空间分配给这个文件，同时将 bitmap 中这个 inode 的位置设置为 1。分配数据块时采用类似的操作进行空间分配，当然，分配数据块时，也需要考虑到一些其他的因素。比如 Linux 系统的 Ext2 和 Ext3 文件系统，为新文件分配数据块时会寻找一个空闲的顺序块，这样文件系统尽量保证文件数据部分在磁盘中是连续的，这样可以提高 IO 读写的性能。像这种预分配的策略是分配数据空间的一种常用的启发式分配策略。<center><img src="http://7xo04o.com1.z0.glb.clouddn.com/vsfs10.png" alt=""><br><small>图7.3 Ext2 Bitmap 示意图</small></center></p>
+<h2 id="读写访问路径"><a href="#读写访问路径" class="headerlink" title="读写访问路径"></a>读写访问路径</h2><p>　　我们对文件和目录的结构和在磁盘的存储有了初步了解，现在开始将更加深入理解读写文件过程。接下来的例子我们假设文件系统已经挂载了，因此超级块信息已经被加载进入内存，但目录和文件的 inode 信息，数据信息仍然还在磁盘上。</p>
+<h3 id="从磁盘读取一个文件"><a href="#从磁盘读取一个文件" class="headerlink" title="从磁盘读取一个文件"></a>从磁盘读取一个文件</h3><p>　　假设我们要读取的文件路径为 /foo/bar，文件大小为 4KB。当你发送一个 open(“/foo/bar”, O_RDONLY) 的系统调用，系统请求获取 bar 文件的基本信息（权限信息，文件大小等），要实现这个目标，文件系统只能通过路径名定位到想要的 inode 信息。<span id="img-7.4"></span><center><img src="http://7xo04o.com1.z0.glb.clouddn.com/vsfs11.png" alt=""><br><small>图7.4 文件读取时间线</small></center><br>　　如图 <a href="#img-7.4">7.4</a> 所示，所有的操作都是从文件系统的根目录（“/”）开始的，因此，文件系统首先需要读取根目录在磁盘上的 inode 节点信息。但是这个节点在哪里呢？为了找到这个节点，我们必须要清楚他的 inode 号是多少，一般情况下，我们都是通过文件或目录的父目录来找到他的 inode 号，但是根目录是没有父目录的，因此根目录的 inode 号必须是已知的，文件系统也必须知道自己是什么时候，怎样挂载的。在大多数的 Unix 文件系统中，根目录的 inode 号是 2。因此，文件系统就是读取包含 inode 号为 2 的块（第一个 inode 块）。<br>　　一旦读取到了根目录的 inode 信息，文件系统就能找到他的数据信息，文件系统就可以找到 foo 目录的相关信息，然后采用同样的方法就能拿到 bar 文件的 inode 信息。open() 函数的最后一步将会把 bar 文件的 inode 信息拷贝到内存，文件系统做最后的权限检查，然后在“打开的文件列表”中申请一个文件描述符（fd）给这个进程。<br>　　文件被打开后，进程就可以发送 read() 系统调用读取这个文件了，首先读取的是通过 inode 找到的文件的第一个块（偏移量为 0，除非调用了 lseek 函数），这个操作也会更新 inode 节点的最后访问时间这个变量。读取操作也将更新内存中文件描述符（fd）对应的文件的偏移量，以便读取下一个文件数据块，以此类推。当文件关闭时，并不会产生磁盘 I/O，这个文件的文件描述符将会被直接注销。<br>　　值得注意的是，open 操作总共产生的 I/O 数量和路径的长度是有关系的，对于每一个路径中的目录，文件系统都需要读取他的 inode 数据，然后还需要遍历这个目录的数据以便查找到下一层目录的 inode 号。在我们上面的例子中，目录结构比较简单，但是一旦目录层级更深，目录数据更多，我们将会花费大量的 I/O 以及遍历时间来查找最终的文件。</p>
+<h3 id="往磁盘写入一个文件"><a href="#往磁盘写入一个文件" class="headerlink" title="往磁盘写入一个文件"></a>往磁盘写入一个文件</h3><p>　　往磁盘写入一个文件与读文件是一个类似的过程。首先，文件必须要被打开，然后进程发送 write() 调用来更新文件内容。最后关闭文件。<br>　　自然，写与读也有不同的地方。写文件可能需要分配块数据空间（除非块空间被覆盖写）。当写入一个新文件时，不仅仅需要将数据写入到磁盘，同时需要更新 bitmap 和 inode 数据。因此每一次写逻辑都至少要产生五次 I/O：一次读写 data bitmap，他将会被用来标记后面新分配的块为已使用；一次读写 inode 信息，最后一次写入文件实际的数据块。<br>　　创建一个文件时，文件系统不仅仅要分配 inode，还要在包含新文件的目录分配空间，这期间发生的 I/O 操作会更多：一次读取 inode bitmap，用来查找空闲的 inode 块；一次写 inode bitmap 标记 inode 块被分配；一次写入新的 inode 数据；一次写入当前文件的信息到目录数据；一次读写目录的 inode 信息并更新他。如果一个目录需要增加新的文件或目录入口，那就还需要添加额外的 I/O 操作。</p>
+<blockquote>
+<p>这里所说的额外的 I/O 操作是因为目录内文件被删除时，在目录中该文件的入口只是标记为可被重新使用，所以一般直接使用旧的入口即可，不需要更新 data bitmap 和申请新的目录数据块。</p>
+</blockquote>
+<p>　　基于上面的理论基础，我们来看看创建一个 /foo/bar 文件，然后写入三个块，这是如何操作的呢？如图 <a href="#img-7.5">7.5</a>：<span id="img-7.5"></span><center><img src="http://7xo04o.com1.z0.glb.clouddn.com/vsfs12.png" alt=""><br><small>图7.5 文件创建时间线</small></center><br>　　如上图，创建这个文件发生了 10 次 I/O 操作最终才成功的创建文件，又分三次分别花费了 5 次 I/O 才将数据写入到磁盘之中。<br>　　<font color="red">提问：文件系统有没有一种有效合理的方式完成读写操作呢？</font></p>
+<h2 id="缓存与队列"><a href="#缓存与队列" class="headerlink" title="缓存与队列"></a>缓存与队列</h2><p>　　答案当然是肯定的，为了缓解读写文件消耗大量的 I/O 操作，很多文件系统利用系统内存来缓存重要的块信息。假设不存在缓存，当文件打开时，每个目录层级都至少需要两次读取操作（一次读取目录的 inode，一次读取他的数据）。对于目录层级特别深的文件路径，比如 /1/2/…/100/file 这样的文件，文件系统需要执行上百次的读取操作而仅仅是为了打开这个文件，这显然是非常的不和谐的。早期的文件系统就引入缓存的概念，他采用一个固定大小的内存块保存常用的块。然后采用类似于 LRU 的策略来决定哪些数据块将会被缓存起来，早期这个缓存的大小一般为内存大小的 10%。<br>　　然而如果文件系统一直不需要缓存，或者需要的很少的情况下，固定分配这么一段内存是极其浪费的。因此现代的文件系统不再采取固定分配缓存的方式，取而代之的是采用动态分配的办法进行缓存管理。<br>　　当我们拥有缓存之后，第一次打开文件产生的 I/O 仍然是需要的，但是后面文件系统操作需要打开相同文件或目录时，将会直接查询缓存是否命中，如果命中，那么就不需要继续发起 I/O 操作，这是相当省力的工作。<br>　　缓存对写而言，工作原理又不太一样，不是类似于读开辟空间，缓存数据然后命中。写缓存发挥的作用的让写延迟起来，形成一个写队列，这样做的好处就是可以让一组小型的 I/O 操作一同更新到磁盘；另外，一个文件创建之后，需要更新 bitmap 的操作缓存起来，接着又发生了一次创建文件操作，同样需要更新 bitmap，那此时可以将这两个 I/O 合并到一个 I/O，效率又得到了提升；其三，通过延迟写可以避免一些写操作，比如你在创建一个文件之后又立刻删除了他，延迟写完全可以不需要在磁盘上进行文件的创建。<br>　　基于这些优势，现代的操作系统会在内存中创建一个写队列，并等待一段合适的时间内发生的写操作。这是一种折中的办法，时间长了，等待的数据较多，那么一旦发生文件系统崩溃，那这些没有写入磁盘的更新就会被丢弃，等待时间越长，丢弃越多；时间短了，达不到缓存 I/O 写操作的效果。<br>　　当然，并不是所有的应用都会需要用到文件系统缓存，比如数据库就是个典型的代表，他为了避免写缓存造成的不必要的数据丢失，会将数据强制的刷入磁盘，或者采用直接 I/O 接口，或者直接使用磁盘接口甚至有的数据库连文件系统都不采用。由此看来，文件系统缓存虽然能够达到提升读写性能的效果，但是，他并不算是安全的。</p>
+
+    </div>
+    <footer>
+        
+  
+  <div class="categories">
+    <a href="/categories/技术文档/">技术文档</a>
+  </div>
+
+        
+  
+  <div class="tags">
+    <a href="/tags/文件系统/">文件系统</a>
+  </div>
+
+		<div class="bdsharebuttonbox">
+	<a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+	<a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+	<a href="#" class="bds_tqq" data-cmd="tqq" title="分享到腾讯微博"></a>
+	<a href="#" class="bds_renren" data-cmd="renren" title="分享到人人网"></a>
+	<a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+	<a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+	<a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+	<a href="#" class="bds_more" data-cmd="more"></a>
+	<a href="#" class="bds_count" data-cmd="count"></a>
+</div>
+<script>
+window._bd_share_config=
+{
+	"common":{
+		"bdSnsKey":{},
+		"bdText":"",
+		"bdMini":"2",
+		"bdMiniList":false,
+		"bdPic":"",
+		"bdStyle":"0",
+		"bdSize":"24"
+	},
+	"share":{},
+	"image":{
+		"viewList":["qzone","tsina","tqq","renren","weixin","fbook","twi"],
+		"viewText":"分享到：",
+		"viewSize":"24"
+	}
+	/*,
+	"selectShare":{
+		"bdContainerClass":null,
+		"bdSelectMiniList":["qzone","tsina","tqq","renren","weixin","fbook","twi"]
+	}*/
+};
+with(document)0[
+	(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='http://bdimg.share.baidu.com/static/api/js/share.js?v=89860593.js?cdnversion='+~(-new Date()/36e5)
+];
+</script>
+    
+        <div class="clearfix"></div>
+    </footer>
+  </div>
+</article>
+
+ <nav id="pagination" >
+    
+    <a href="/2015/12/15/filesystem-6/" class="alignleft prev" title="文件系统设计与实现【6】 - 本地快速文件系统（FFS）">文件系统设计与实现【6】 - 本地快速文件系统（FFS）</a>
+    
+    
+    <a href="/2015/11/16/filesystem-4/" class="alignright next" title="文件系统设计与实现【4】 - 文件与目录">文件系统设计与实现【4】 - 文件与目录</a>
+    
+    <div class="clearfix"></div>
+</nav>
+
+
+
+	
+	<section id="comment">
+		<!-- 多说评论框 start -->
+		<div class="ds-thread" data-thread-key="2015/11/17/filesystem-5/" data-title="文件系统设计与实现【5】 - 简单文件系统实现" data-url="http://xy0501.com/2015/11/17/filesystem-5/"></div>
+		<!-- 多说评论框 end -->
+		<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+		<script type="text/javascript">
+		var duoshuoQuery = {short_name:"liuyun2113"};
+		(function() {
+			var ds = document.createElement('script');
+			ds.type = 'text/javascript';ds.async = true;
+			ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+			ds.charset = 'UTF-8';
+			(document.getElementsByTagName('head')[0] 
+			 || document.getElementsByTagName('body')[0]).appendChild(ds);
+		})();
+		</script>
+		<!-- 多说公共JS代码 end -->
+	</section>
+	
+</div></div>
+    <aside id="sidebar" class="alignright">
+  <div class="search">
+ <!-- <form action="http://zhannei.baidu.com/cse/site" target="_blank" method="get" accept-charset="utf-8"> -->
+  <form>
+    <input type="search" name="q" results="0" placeholder="搜索" id="liuyun_search_input">
+    <input type="hidden" name="q" value="xy0501.com">
+   <!-- <input type="hidden" name="q" value="site:xy0501.com"> -->
+  </form>
+</div>
+
+
+  
+<div class="widget tag">
+  <h3 class="title">分类</h3>
+  <ul class="entry">
+  
+    <li><a href="/categories/技术文档/">技术文档</a><small>15</small></li>
+  
+  </ul>
+</div>
+
+
+  
+<div class="widget tagcloud">
+  <h3 class="title">标签云</h3>
+  <div class="entry">
+    <a href="/tags/Arm64/" style="font-size: 10px;">Arm64</a> <a href="/tags/QML/" style="font-size: 10px;">QML</a> <a href="/tags/Qt/" style="font-size: 10px;">Qt</a> <a href="/tags/Xor/" style="font-size: 10px;">Xor</a> <a href="/tags/megacli/" style="font-size: 10px;">megacli</a> <a href="/tags/文件系统/" style="font-size: 20px;">文件系统</a> <a href="/tags/硬件-RAID/" style="font-size: 10px;">硬件 RAID</a>
+  </div>
+</div>
+
+
+  <iframe width="100%" height="119" class="share_self widget"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=0&speed=0&skin=1&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=2479286210&verifier=f4d2c316&dpc=1"></iframe>
+
+
+  <iframe class="widget" frameborder="no" border="0" marginwidth="0" marginheight="0" width="100%" height=86 src="http://music.163.com/outchain/player?type=2&id=64106&auto=0&height=66"></iframe>
+
+
+  <div class="widget tag">
+<h3 class="title">友情链接</h3>
+<ul class="entry">
+<li><a href="http://opiece.me" title="Chillax's Blog" target="_blank">Chillax</a></li>
+</ul>
+</div>
+</aside>
+    <div class="clearfix"></div>
+  </div>
+  <footer id="footer"><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> 疾风知劲草，板荡识忠臣 <br/>
+			勇夫安识义，知者必怀仁</p>
+	</section>
+	 
+	<div class="social-font clearfix">
+		
+		<a href="http://weibo.com/2479286210" target="_blank" title="weibo"></a>
+		
+		
+		
+		<a href="https://github.com/cloud4life" target="_blank" title="github"></a>
+		
+		
+		
+		
+		<a href="mailto:liuyun01@kylinos.cn" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+		<p class="copyright">Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/huangjunhui/concise" target="_blank" title="Concise">Concise</a> © 2016 
+		
+		<a href="http://xy0501.com/about" target="_blank" title="LiuYun">LiuYun</a>
+		
+		<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1256755286'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s95.cnzz.com/z_stat.php%3Fid%3D1256755286%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+		</p>
+</div>
+</footer>
+  <script src="//libs.baidu.com/jquery/2.0.3/jquery.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/counter.js"></script>
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+  $('.fancybox').fancybox();
+})(jQuery);
+</script>
+
+<div id="totop" style="position:fixed;bottom:100px;right:10px;cursor: pointer;">
+<a title="返回顶部"><img src="/imgs/scrollup.png"/></a>
+</div>
+<script src="/js/totop.js"></script>
+
+<script type="text/javascript">
+  (function(w,d,t,u,n,s,e){w['SwiftypeObject']=n;w[n]=w[n]||function(){
+	    (w[n].q=w[n].q||[]).push(arguments);};s=d.createElement(t);
+		  e=d.getElementsByTagName(t)[0];s.async=1;s.src=u;e.parentNode.insertBefore(s,e);
+		    })(window,document,'script','//s.swiftypecdn.com/install/v2/st.js','_st');
+
+			  _st('install','BLd1yiQzwz7iK32F7_hB','2.0.0');
+			  </script>
+
+<!-- mathjax config similar to math.stackexchange -->
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+</body>
+</html>
+
+

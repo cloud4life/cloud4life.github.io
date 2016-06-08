@@ -1,0 +1,530 @@
+
+
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script type="text/javascript" src="http://tajs.qq.com/stats?sId=44218032" charset="UTF-8"></script>
+  <script>
+	var _hmt = _hmt || [];
+	(function() {
+	  var hm = document.createElement("script");
+	  hm.src = "//hm.baidu.com/hm.js?7192fa361f5cabb11d8a22de41c1ba8f";
+	  var s = document.getElementsByTagName("script")[0]; 
+	  s.parentNode.insertBefore(hm, s);
+	})();
+	</script>
+  
+  <title>第 2 页 | 会飞的猪的小站</title>
+  <meta name="author" content="LiuYun">
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  
+  <meta property="og:site_name" content="会飞的猪的小站"/>
+
+  
+    <meta property="og:image" content="undefined"/>
+  
+
+  <link href="/imgs/favicon.ico" rel="icon" type="image/x-ico">
+  <link rel="alternate" href="/atom.xml" title="会飞的猪的小站" type="application/atom+xml">
+  <link rel="stylesheet" href="/css/style.css" media="screen" type="text/css">
+  <!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+  <script src="//libs.baidu.com/jquery/1.8.0/jquery.min.js"></script>
+</head>
+
+
+<body>
+  <header><div>
+		
+			<div id="imglogo">
+				<a href="/"><img src="/imgs/logo.png" alt="会飞的猪的小站" title="会飞的猪的小站"/></a>
+			</div>
+			
+			<div id="textlogo">
+				<h1 class="site-name">会飞的猪的小站</h1>
+				<h2 class="blog-motto"></h2>
+			</div>
+			<nav class="animated">
+				<ul>
+					
+						<li><a href="/">首页</a></li>
+					
+						<li><a href="/archives">归档文件</a></li>
+					
+						<li><a href="/about">关于</a></li>
+					
+	<!--				<li> <a href="/atom.xml">RSS</a> </li> -->
+				</ul>
+			</nav>			
+</div>
+</header>
+  <div id="content" class="inner">
+    <div id="main-col" class="alignleft"><div id="wrapper">
+  <article class="post">
+  
+    <div class="gallery">
+  <div class="photoset">
+    
+      <img src="">
+    
+  </div>
+  <div class="control">
+    <div class="prev"></div>
+    <div class="next"></div>
+  </div>
+</div>
+  
+  <div class="post-content">
+    <header>
+      
+        <time datetime="2015-11-16T01:11:36.000Z"><a href="/2015/11/16/filesystem-4/">2015-11-16</a></time>
+      
+      
+  
+    <h1 class="title"><a href="/2015/11/16/filesystem-4/">文件系统设计与实现【4】 - 文件与目录</a></h1>
+  
+
+    </header>
+    <div class="entry">
+		<p>　　本书前文中我们已经了解到了操作系统两个关键的抽象概念：一个是进程，他是 CPU 的虚拟化；一个是地址空间，他是内存的虚拟化。这两者的结合，允许程序运行在一个独立的、私有的空间中，就好像他拥有自己独立的处理器和内存。这种虚拟化让系统编程变得更简单。现在不但桌面和服务器上普遍在使用这种虚拟化，同时也在各种可编程平台上快速发展，比如移动设备。<br>　　在后续部分，我们介绍一个更为关键的虚拟化部分：持久性存储。一个进行持久存储的设备（传统磁盘或者 SSD），不同有内存，掉电后会失去数据，他能安全的、永久的保存数据（至少能够长时间保存数据）。因此，操作系统必须额外关注这种设备，因为他可以用来保存用户重要的数据信息。<br>　　后续的章节中，我们将开始研究这种持久性数据的管理方式，关注能够提高系统性能和可靠性的方法。这一章介绍与 UNIX 文件系统进行交互的接口。 
+    </div>
+    <footer>
+		<div class="alignleft">
+		<a href="/2015/11/16/filesystem-4/#more" class="more-link">Read more</a>
+		</div>
+		<div class="alignright">
+		<a href="/2015/11/16/filesystem-4/#comment" class="ds-thread-count comment-link" data-thread-key="2015/11/16/filesystem-4/" data-count-type="comments"></a>
+		</div>
+		<!-- 多说js加载开始，一个页面只需要加载一次 -->
+		<script type="text/javascript">
+		var duoshuoQuery = {short_name: "liuyun2113"};
+		(function() {
+			    var ds = document.createElement('script');
+				ds.type = 'text/javascript';ds.async = true;
+				ds.src = 'http://static.duoshuo.com/embed.js';
+				ds.charset = 'UTF-8';
+				(document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(ds);
+		})();
+		</script>
+        <div class="clearfix"></div>
+    </footer>
+  </div>
+</article>
+
+
+  <article class="post">
+  
+    <div class="gallery">
+  <div class="photoset">
+    
+      <img src="">
+    
+  </div>
+  <div class="control">
+    <div class="prev"></div>
+    <div class="next"></div>
+  </div>
+</div>
+  
+  <div class="post-content">
+    <header>
+      
+        <time datetime="2015-11-10T05:53:36.000Z"><a href="/2015/11/10/filesystem-3/">2015-11-10</a></time>
+      
+      
+  
+    <h1 class="title"><a href="/2015/11/10/filesystem-3/">文件系统设计与实现【3】 - RAID 磁盘阵列</a></h1>
+  
+
+    </header>
+    <div class="entry">
+		<p>　　由于 I/O 操作很耗时，甚至可能成为系统性能的瓶颈，我们希望磁盘越快越好；由于我们每天产生的数据越来越多，我们希望磁盘越大越好；由于数据可能没有备份，我们希望磁盘越稳定可靠越好。<br>　　<font color="red">提问：如何创建既反应快又容量大且可靠的磁盘呢？</font> 
+    </div>
+    <footer>
+		<div class="alignleft">
+		<a href="/2015/11/10/filesystem-3/#more" class="more-link">Read more</a>
+		</div>
+		<div class="alignright">
+		<a href="/2015/11/10/filesystem-3/#comment" class="ds-thread-count comment-link" data-thread-key="2015/11/10/filesystem-3/" data-count-type="comments"></a>
+		</div>
+		<!-- 多说js加载开始，一个页面只需要加载一次 -->
+		<script type="text/javascript">
+		var duoshuoQuery = {short_name: "liuyun2113"};
+		(function() {
+			    var ds = document.createElement('script');
+				ds.type = 'text/javascript';ds.async = true;
+				ds.src = 'http://static.duoshuo.com/embed.js';
+				ds.charset = 'UTF-8';
+				(document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(ds);
+		})();
+		</script>
+        <div class="clearfix"></div>
+    </footer>
+  </div>
+</article>
+
+
+  <article class="post">
+  
+    <div class="gallery">
+  <div class="photoset">
+    
+      <img src="">
+    
+  </div>
+  <div class="control">
+    <div class="prev"></div>
+    <div class="next"></div>
+  </div>
+</div>
+  
+  <div class="post-content">
+    <header>
+      
+        <time datetime="2015-11-05T06:12:36.000Z"><a href="/2015/11/05/filesystem-2/">2015-11-05</a></time>
+      
+      
+  
+    <h1 class="title"><a href="/2015/11/05/filesystem-2/">文件系统设计与实现【2】 - 磁盘驱动器</a></h1>
+  
+
+    </header>
+    <div class="entry">
+		<p>　　上一章继续介绍了什么是 IO 设备，这一章节我们将更加深入的介绍一款特别的 IO 设备：磁盘驱动器。计算机系统发展了几十年，磁盘驱动器一直都是数据持久存储的主要形式，也是当前大多数文件系统正常工作的前提条件。因此，了解他的细节更有利于理解文件系统是怎样管理他的。<br>　　<font color="red">提问：如何存储和访问磁盘上的数据？接口又是怎样的？数据在磁盘中是如何布局的？怎样的调度才能获得更好的性能？</font> 
+    </div>
+    <footer>
+		<div class="alignleft">
+		<a href="/2015/11/05/filesystem-2/#more" class="more-link">Read more</a>
+		</div>
+		<div class="alignright">
+		<a href="/2015/11/05/filesystem-2/#comment" class="ds-thread-count comment-link" data-thread-key="2015/11/05/filesystem-2/" data-count-type="comments"></a>
+		</div>
+		<!-- 多说js加载开始，一个页面只需要加载一次 -->
+		<script type="text/javascript">
+		var duoshuoQuery = {short_name: "liuyun2113"};
+		(function() {
+			    var ds = document.createElement('script');
+				ds.type = 'text/javascript';ds.async = true;
+				ds.src = 'http://static.duoshuo.com/embed.js';
+				ds.charset = 'UTF-8';
+				(document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(ds);
+		})();
+		</script>
+        <div class="clearfix"></div>
+    </footer>
+  </div>
+</article>
+
+
+  <article class="post">
+  
+    <div class="gallery">
+  <div class="photoset">
+    
+      <img src="">
+    
+  </div>
+  <div class="control">
+    <div class="prev"></div>
+    <div class="next"></div>
+  </div>
+</div>
+  
+  <div class="post-content">
+    <header>
+      
+        <time datetime="2015-11-03T00:21:36.000Z"><a href="/2015/11/03/filesystem-1/">2015-11-03</a></time>
+      
+      
+  
+    <h1 class="title"><a href="/2015/11/03/filesystem-1/">文件系统设计与实现【1】 - I/O 设备</a></h1>
+  
+
+    </header>
+    <div class="entry">
+		<p>　　在进入本书最重要的章节之前，我们首先需要了解什么是输入输出设备，也就是 IO 设备；IO 子系统是计算机系统中最关键的系统之一，试想如果一个计算机程序没有输入，那么他每一次输出的结果都会是一样的，而如果程序没有输出，那么这个程序运行就没有什么意义；那么问题来了：<br>　　<font color="red">提问：怎样让 IO 子系统完美的契合进入计算机系统，又如何让他发挥最佳的效率呢？</font> 
+    </div>
+    <footer>
+		<div class="alignleft">
+		<a href="/2015/11/03/filesystem-1/#more" class="more-link">Read more</a>
+		</div>
+		<div class="alignright">
+		<a href="/2015/11/03/filesystem-1/#comment" class="ds-thread-count comment-link" data-thread-key="2015/11/03/filesystem-1/" data-count-type="comments"></a>
+		</div>
+		<!-- 多说js加载开始，一个页面只需要加载一次 -->
+		<script type="text/javascript">
+		var duoshuoQuery = {short_name: "liuyun2113"};
+		(function() {
+			    var ds = document.createElement('script');
+				ds.type = 'text/javascript';ds.async = true;
+				ds.src = 'http://static.duoshuo.com/embed.js';
+				ds.charset = 'UTF-8';
+				(document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(ds);
+		})();
+		</script>
+        <div class="clearfix"></div>
+    </footer>
+  </div>
+</article>
+
+
+  <article class="post">
+  
+    <div class="gallery">
+  <div class="photoset">
+    
+      <img src="">
+    
+  </div>
+  <div class="control">
+    <div class="prev"></div>
+    <div class="next"></div>
+  </div>
+</div>
+  
+  <div class="post-content">
+    <header>
+      
+        <time datetime="2015-10-30T05:53:36.000Z"><a href="/2015/10/30/arm64-xor/">2015-10-30</a></time>
+      
+      
+  
+    <h1 class="title"><a href="/2015/10/30/arm64-xor/">Arm64 异或优化算法的设计与实现</a></h1>
+  
+
+    </header>
+    <div class="entry">
+		<h2 id="计算机中的异或"><a href="#计算机中的异或" class="headerlink" title="计算机中的异或"></a>计算机中的异或</h2><p>　　异或算法得名于“异或”操作（XOR，其运算符为<code>^</code>），在网络环境中，异或算法被当作校验算法而广泛使用，发送方在发送数据的时候，同时将所有需要发送的数据按照字节进行异或操作，并在最后将异或的结果也当作内容一并发送到接受方，接受方收到一组数据时，也同样需要对除了校验字节外的其他字节进行异或操作，并将自己的异或结果与从发送方接收到的校验和进行比较，如果两数一样，则认为所接收的数据没有错误，否则就认为出错。 
+    </div>
+    <footer>
+		<div class="alignleft">
+		<a href="/2015/10/30/arm64-xor/#more" class="more-link">Read more</a>
+		</div>
+		<div class="alignright">
+		<a href="/2015/10/30/arm64-xor/#comment" class="ds-thread-count comment-link" data-thread-key="2015/10/30/arm64-xor/" data-count-type="comments"></a>
+		</div>
+		<!-- 多说js加载开始，一个页面只需要加载一次 -->
+		<script type="text/javascript">
+		var duoshuoQuery = {short_name: "liuyun2113"};
+		(function() {
+			    var ds = document.createElement('script');
+				ds.type = 'text/javascript';ds.async = true;
+				ds.src = 'http://static.duoshuo.com/embed.js';
+				ds.charset = 'UTF-8';
+				(document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(ds);
+		})();
+		</script>
+        <div class="clearfix"></div>
+    </footer>
+  </div>
+</article>
+
+
+  <article class="post">
+  
+    <div class="gallery">
+  <div class="photoset">
+    
+      <img src="">
+    
+  </div>
+  <div class="control">
+    <div class="prev"></div>
+    <div class="next"></div>
+  </div>
+</div>
+  
+  <div class="post-content">
+    <header>
+      
+        <time datetime="2015-10-30T04:26:21.000Z"><a href="/2015/10/30/megaraid/">2015-10-30</a></time>
+      
+      
+  
+    <h1 class="title"><a href="/2015/10/30/megaraid/">Megacli 硬件 RAID 配置管理</a></h1>
+  
+
+    </header>
+    <div class="entry">
+		<p>　　硬件 RAID 需要硬件 RAID 卡（如LSI 9260-8i SAS2108）和相应的内核驱动支持（megaraid_sas）。命令行管理工具 MegaCli 是 LSI 官方提供的硬件 RAID 卡管理工具。 
+    </div>
+    <footer>
+		<div class="alignleft">
+		<a href="/2015/10/30/megaraid/#more" class="more-link">Read more</a>
+		</div>
+		<div class="alignright">
+		<a href="/2015/10/30/megaraid/#comment" class="ds-thread-count comment-link" data-thread-key="2015/10/30/megaraid/" data-count-type="comments"></a>
+		</div>
+		<!-- 多说js加载开始，一个页面只需要加载一次 -->
+		<script type="text/javascript">
+		var duoshuoQuery = {short_name: "liuyun2113"};
+		(function() {
+			    var ds = document.createElement('script');
+				ds.type = 'text/javascript';ds.async = true;
+				ds.src = 'http://static.duoshuo.com/embed.js';
+				ds.charset = 'UTF-8';
+				(document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(ds);
+		})();
+		</script>
+        <div class="clearfix"></div>
+    </footer>
+  </div>
+</article>
+
+
+
+
+    <nav id="page-navs">
+      <a class="extend prev" rel="prev" href="/">&laquo; Prev</a><a class="page-number" href="/">1</a><span class="page-number current">2</span>
+    </nav>
+
+
+</div></div>
+    <aside id="sidebar" class="alignright">
+  <div class="search">
+ <!-- <form action="http://zhannei.baidu.com/cse/site" target="_blank" method="get" accept-charset="utf-8"> -->
+  <form>
+    <input type="search" name="q" results="0" placeholder="搜索" id="liuyun_search_input">
+    <input type="hidden" name="q" value="xy0501.com">
+   <!-- <input type="hidden" name="q" value="site:xy0501.com"> -->
+  </form>
+</div>
+
+
+  
+<div class="widget tag">
+  <h3 class="title">分类</h3>
+  <ul class="entry">
+  
+    <li><a href="/categories/技术文档/">技术文档</a><small>15</small></li>
+  
+  </ul>
+</div>
+
+
+  
+<div class="widget tagcloud">
+  <h3 class="title">标签云</h3>
+  <div class="entry">
+    <a href="/tags/Arm64/" style="font-size: 10px;">Arm64</a> <a href="/tags/QML/" style="font-size: 10px;">QML</a> <a href="/tags/Qt/" style="font-size: 10px;">Qt</a> <a href="/tags/Xor/" style="font-size: 10px;">Xor</a> <a href="/tags/megacli/" style="font-size: 10px;">megacli</a> <a href="/tags/文件系统/" style="font-size: 20px;">文件系统</a> <a href="/tags/硬件-RAID/" style="font-size: 10px;">硬件 RAID</a>
+  </div>
+</div>
+
+
+  <iframe width="100%" height="119" class="share_self widget"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=119&fansRow=2&ptype=0&speed=0&skin=1&isTitle=1&noborder=1&isWeibo=0&isFans=0&uid=2479286210&verifier=f4d2c316&dpc=1"></iframe>
+
+
+  <iframe class="widget" frameborder="no" border="0" marginwidth="0" marginheight="0" width="100%" height=86 src="http://music.163.com/outchain/player?type=2&id=64106&auto=0&height=66"></iframe>
+
+
+  <div class="widget tag">
+<h3 class="title">友情链接</h3>
+<ul class="entry">
+<li><a href="http://opiece.me" title="Chillax's Blog" target="_blank">Chillax</a></li>
+</ul>
+</div>
+</aside>
+    <div class="clearfix"></div>
+  </div>
+  <footer id="footer"><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> 疾风知劲草，板荡识忠臣 <br/>
+			勇夫安识义，知者必怀仁</p>
+	</section>
+	 
+	<div class="social-font clearfix">
+		
+		<a href="http://weibo.com/2479286210" target="_blank" title="weibo"></a>
+		
+		
+		
+		<a href="https://github.com/cloud4life" target="_blank" title="github"></a>
+		
+		
+		
+		
+		<a href="mailto:liuyun01@kylinos.cn" target="_blank" class="icon-email" title="Email Me"></a>
+		
+	</div>
+		<p class="copyright">Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/huangjunhui/concise" target="_blank" title="Concise">Concise</a> © 2016 
+		
+		<a href="http://xy0501.com/about" target="_blank" title="LiuYun">LiuYun</a>
+		
+		<script type="text/javascript">var cnzz_protocol = (("https:" == document.location.protocol) ? " https://" : " http://");document.write(unescape("%3Cspan id='cnzz_stat_icon_1256755286'%3E%3C/span%3E%3Cscript src='" + cnzz_protocol + "s95.cnzz.com/z_stat.php%3Fid%3D1256755286%26show%3Dpic' type='text/javascript'%3E%3C/script%3E"));</script>
+		</p>
+</div>
+</footer>
+  <script src="//libs.baidu.com/jquery/2.0.3/jquery.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+<script src="/js/counter.js"></script>
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+  $('.fancybox').fancybox();
+})(jQuery);
+</script>
+
+<div id="totop" style="position:fixed;bottom:100px;right:10px;cursor: pointer;">
+<a title="返回顶部"><img src="/imgs/scrollup.png"/></a>
+</div>
+<script src="/js/totop.js"></script>
+
+<script type="text/javascript">
+  (function(w,d,t,u,n,s,e){w['SwiftypeObject']=n;w[n]=w[n]||function(){
+	    (w[n].q=w[n].q||[]).push(arguments);};s=d.createElement(t);
+		  e=d.getElementsByTagName(t)[0];s.async=1;s.src=u;e.parentNode.insertBefore(s,e);
+		    })(window,document,'script','//s.swiftypecdn.com/install/v2/st.js','_st');
+
+			  _st('install','BLd1yiQzwz7iK32F7_hB','2.0.0');
+			  </script>
+
+<!-- mathjax config similar to math.stackexchange -->
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+      tex2jax: {
+        skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    });
+</script>
+
+<script type="text/x-mathjax-config">
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax(), i;
+        for(i=0; i < all.length; i += 1) {
+            all[i].SourceElement().parentNode.className += ' has-jax';
+        }
+    });
+</script>
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+</body>
+</html>
+
+
